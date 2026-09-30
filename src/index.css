@@ -1,0 +1,114 @@
+@import 'tailwindcss';
+
+@theme {
+  /* Eye TroOps brand palette — vivid & warm */
+  --color-gold: #d4993a; /* Bright Amber Gold — accents, active states */
+  --color-gold-dark: #a87520; /* Rich Antique Gold — legible action surfaces */
+  --color-gold-light: #fdf0dc; /* Light Amber Cream — active row fills */
+  --color-champagne: #e8d9c4; /* Champagne Border — all dividers */
+  --color-ivory: #fdf8f2; /* Warm Ivory — app background */
+  --color-espresso: #352a20; /* Deep Espresso — primary text */
+  --color-warmgray: #6d5f52; /* Warm Gray — secondary text */
+
+  /* Status — vibrant, high-contrast */
+  --color-success: #1a9a5c; /* Vivid Emerald */
+  --color-warning: #e08c1e; /* Warm Saffron */
+  --color-error: #d95040; /* Bright Coral */
+
+  /* Accent colors for tile variety */
+  --color-teal: #1a8f8f; /* Teal — expenses */
+  --color-violet: #7e5bb5; /* Violet — net */
+
+  --color-surface: #ffffff; /* Soft White — cards */
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Manrope', 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* 14px cards, 9px controls — generous but never pill-shaped */
+  --radius-card: 0.875rem;
+  --radius-control: 0.5625rem;
+
+  /* A deliberately shallow shadow scale: espresso-tinted, never grey or heavy */
+  --shadow-card: 0 1px 3px rgb(53 42 32 / 0.06), 0 1px 2px rgb(53 42 32 / 0.04);
+  --shadow-raised: 0 4px 12px rgb(53 42 32 / 0.08), 0 2px 4px rgb(53 42 32 / 0.04);
+  --shadow-pop: 0 10px 30px rgb(53 42 32 / 0.12), 0 2px 8px rgb(53 42 32 / 0.06);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-ivory font-sans text-espresso antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display text-espresso;
+  }
+
+  /* Visible, high-contrast focus for keyboard users on every control. */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-gold;
+  }
+
+  ::selection {
+    @apply bg-gold-light text-espresso;
+  }
+
+  /* Native date/number spinners clash with the quiet aesthetic. */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+}
+
+@layer utilities {
+  /* Tabular figures keep peso columns and prescription tables aligned. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Native select chevron, drawn in Espresso so it never looks like a default
+     browser control. Replaces the platform arrow for a consistent look. */
+  .select-chevron {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2375695d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.625rem center;
+    appearance: none;
+  }
+
+  /* Staggered fade-in / slide-up entrance for dashboard sections.
+     Each section sets its own --animation-delay via inline style. */
+  .today-animate {
+    animation: today-fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+@keyframes today-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
