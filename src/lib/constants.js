@@ -4,19 +4,6 @@ export const APP_SUBTITLE = 'OPTICAL CLINIC'
 /** Official clinic artwork, served from /public. */
 export const LOGO_PATH = '/eye-troops-logo.png'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? ''
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''
-
-export const SUPABASE_URL = supabaseUrl
-export const SUPABASE_ANON_KEY = supabaseAnonKey
-
-/**
- * When no project is configured the app falls back to sample data so a fresh
- * clone is still explorable. Writes are rejected in that mode.
- */
-export const IS_SUPABASE_CONFIGURED =
-  supabaseUrl.startsWith('https://') && supabaseAnonKey.length > 20
-
 export const ORDER_NUMBER_PREFIX = 'ET-'
 
 /**

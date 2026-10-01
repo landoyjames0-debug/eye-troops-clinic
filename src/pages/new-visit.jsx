@@ -8,6 +8,7 @@ import {
   ClipboardList,
   Glasses,
   Loader2,
+  Minus,
   MoreHorizontal,
   Plus,
   Search,
@@ -26,6 +27,7 @@ import { ChoiceGroup } from '@/components/ui/choice-group'
 import { VisitDateTimeField } from '@/components/visits/visit-datetime-field'
 import { ErrorNote, Skeleton } from '@/components/ui/feedback'
 import { useAsync } from '@/hooks/use-async'
+import { useAuth } from '@/hooks/use-auth'
 import { createPatient, findPatientByMobile, listPatients } from '@/services/patients.service'
 import { createVisit, hasPrescription } from '@/services/visits.service'
 import { createOrder } from '@/services/orders.service'
@@ -38,6 +40,7 @@ import {
 } from '@/lib/constants'
 import { toInputDateTime, toDateKey } from '@/utils/dates'
 import { formatPeso } from '@/utils/format'
+import { getDefaultPaymentMethod } from '@/lib/user-preferences'
 import { AppError } from '@/utils/errors'
 import { cn } from '@/lib/utils'
 
@@ -269,6 +272,7 @@ function SummaryRow({ label, value, tone = 'default' }) {
 export default function NewVisitPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
+  const { userId } = useAuth()
 
   const patientId = searchParams.get('patient')
   const selectPatient = (id) => {
@@ -285,7 +289,7 @@ export default function NewVisitPage() {
 
   const [items, setItems] = useState([blankItem()])
   const [amountPaid, setAmountPaid] = useState('')
-  const [method, setMethod] = useState('Cash')
+  const [method, setMethod] = useState(() => getDefaultPaymentMethod(userId))
 
   const [newPatient, setNewPatient] = useState({
     full_name: '',
@@ -848,17 +852,49 @@ export default function NewVisitPage() {
                       options={LENS_TYPES}
                       onChange={(next) => setItem(item.key, { lensType: next })}
                     />
-                    <div className="grid items-end gap-3 sm:grid-cols-[5rem_1fr_2.5rem]">
-                      <Input
-                        id={`qty-${item.key}`}
-                        label="Qty"
-                        type="number"
-                        min="1"
-                        step="1"
-                        inputMode="numeric"
-                        value={item.quantity}
-                        onChange={(event) => setItem(item.key, { quantity: event.target.value })}
-                      />
+                    <div className="grid items-end gap-3 sm:grid-cols-[8.5rem_1fr_2.5rem]">
+                      <div>
+                        <Label htmlFor={`qty-${item.key}`}>Qty</Label>
+                        <div className="flex h-9 overflow-hidden rounded-control border border-champagne bg-white">
+                          <button
+                            type="button"
+                            disabled={(parseInt(item.quantity, 10) || 1) <= 1}
+                            onClick={() =>
+                              setItem(item.key, {
+                                quantity: String(Math.max(parseInt(item.quantity, 10) || 1, 1) - 1),
+                              })
+                            }
+                            aria-label={`Decrease quantity for item ${index + 1}`}
+                            className="flex w-8 shrink-0 items-center justify-center text-warmgray transition-colors hover:bg-gold-light/60 hover:text-espresso focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-gold disabled:cursor-not-allowed disabled:opacity-45"
+                          >
+                            <Minus className="size-3.5" aria-hidden="true" />
+                          </button>
+                          <input
+                            id={`qty-${item.key}`}
+                            type="number"
+                            min="1"
+                            step="1"
+                            inputMode="numeric"
+                            value={item.quantity}
+                            onChange={(event) =>
+                              setItem(item.key, { quantity: event.target.value })
+                            }
+                            className="h-full min-w-0 w-full border-x border-champagne bg-transparent text-center text-sm text-espresso focus:border-gold focus:ring-2 focus:ring-gold/20 focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setItem(item.key, {
+                                quantity: String(Math.max(parseInt(item.quantity, 10) || 1, 1) + 1),
+                              })
+                            }
+                            aria-label={`Increase quantity for item ${index + 1}`}
+                            className="flex w-8 shrink-0 items-center justify-center text-warmgray transition-colors hover:bg-gold-light/60 hover:text-espresso focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-gold"
+                          >
+                            <Plus className="size-3.5" aria-hidden="true" />
+                          </button>
+                        </div>
+                      </div>
                       <Input
                         id={`price-${item.key}`}
                         label="Price each"

@@ -1,4 +1,3 @@
-import { IS_SUPABASE_CONFIGURED } from '@/lib/constants'
 import { supabase, unwrap } from '@/lib/supabase'
 import { toAppError } from '@/utils/errors'
 import { outstandingBalance, withTotals } from './orders.service'
@@ -32,44 +31,6 @@ function attachPrescriptions(visits, prescriptions, patientId) {
 
 /** Most recent visit first, with its prescription attached. */
 export async function listPatients(search = '') {
-  if (!IS_SUPABASE_CONFIGURED) {
-    const { DEMO_PATIENTS, DEMO_PRESCRIPTIONS, DEMO_VISITS, DEMO_ORDERS, DEMO_ALL_PAYMENTS } =
-      await import('@/lib/demo-data')
-    const roster = [...DEMO_PATIENTS]
-      .filter((patient) => !patient.archived_at)
-      .sort((a, b) => a.full_name.localeCompare(b.full_name))
-    const orderByPatient = new Map()
-    for (const order of DEMO_ORDERS) {
-      const mine = orderByPatient.get(order.patient_id) ?? []
-      mine.push(withTotals(order, DEMO_ALL_PAYMENTS))
-      orderByPatient.set(order.patient_id, mine)
-    }
-
-    const term = search.trim().toLowerCase()
-    return roster
-      .map((patient, index) => {
-        const orders = orderByPatient.get(patient.id) ?? []
-        return {
-          ...patient,
-          cp_label: cpLabel(index),
-          balance: outstandingBalance(orders),
-          orders,
-        }
-      })
-      .filter((patient) => {
-        if (!term) return true
-        return (
-          patient.full_name.toLowerCase().includes(term) ||
-          (patient.cp_number ?? '').includes(term) ||
-          patient.cp_label.toLowerCase().includes(term)
-        )
-      })
-      .map((patient) => {
-        const visits = attachPrescriptions(DEMO_VISITS, DEMO_PRESCRIPTIONS, patient.id)
-        return { ...patient, last_visit: visits[0] ?? null }
-      })
-  }
-
   try {
     let query = supabase.from('patients').select('*').is('archived_at', null)
     const term = search.trim()
@@ -124,24 +85,6 @@ export async function listPatients(search = '') {
 }
 
 export async function getPatientDetail(patientId) {
-  if (!IS_SUPABASE_CONFIGURED) {
-    const { DEMO_PATIENTS, DEMO_PRESCRIPTIONS, DEMO_VISITS, DEMO_ORDERS, DEMO_ALL_PAYMENTS } =
-      await import('@/lib/demo-data')
-    const patient = DEMO_PATIENTS.find((row) => row.id === patientId)
-    if (!patient) throw toAppError(new Error('not found'), 'notFound')
-    const visits = attachPrescriptions(DEMO_VISITS, DEMO_PRESCRIPTIONS, patientId)
-    const orders = DEMO_ORDERS.filter((row) => row.patient_id === patientId)
-      .map((order) => withTotals(order, DEMO_ALL_PAYMENTS))
-      .sort((a, b) => Date.parse(b.order_date) - Date.parse(a.order_date))
-    return {
-      patient,
-      visits,
-      orders,
-      balance: outstandingBalance(orders),
-      lastVisit: visits[0] ?? null,
-    }
-  }
-
   try {
     const patientResult = await supabase
       .from('patients')
@@ -183,20 +126,6 @@ export async function createPatient(input) {
     notes: toNullIfBlank(input.notes),
   }
 
-  if (!IS_SUPABASE_CONFIGURED) {
-    const { DEMO_PATIENTS } = await import('@/lib/demo-data')
-    const patient = {
-      id: `pat-${DEMO_PATIENTS.length + 1}`,
-      ...payload,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
-    // Persisted like visits, orders and payments so a patient created during a
-    // demo session shows up in the roster and on their orders.
-    DEMO_PATIENTS.push(patient)
-    return patient
-  }
-
   try {
     return unwrap(await supabase.from('patients').insert(payload).select('*').single())
   } catch (caught) {
@@ -210,14 +139,6 @@ export async function updatePatient(patientId, input) {
     cp_number: toNullIfBlank(input.cp_number),
     address: toNullIfBlank(input.address),
     notes: toNullIfBlank(input.notes),
-  }
-
-  if (!IS_SUPABASE_CONFIGURED) {
-    const { DEMO_PATIENTS } = await import('@/lib/demo-data')
-    const patient = DEMO_PATIENTS.find((row) => row.id === patientId)
-    if (!patient) throw toAppError(new Error('not found'), 'notFound')
-    Object.assign(patient, payload, { updated_at: new Date().toISOString() })
-    return patient
   }
 
   try {
@@ -235,14 +156,6 @@ export async function updatePatient(patientId, input) {
  */
 export async function archivePatient(patientId) {
   const stamp = new Date().toISOString()
-
-  if (!IS_SUPABASE_CONFIGURED) {
-    const { DEMO_PATIENTS } = await import('@/lib/demo-data')
-    const patient = DEMO_PATIENTS.find((row) => row.id === patientId)
-    if (!patient) throw toAppError(new Error('not found'), 'notFound')
-    Object.assign(patient, { archived_at: stamp, updated_at: stamp })
-    return patient
-  }
 
   try {
     return unwrap(
@@ -265,15 +178,6 @@ export async function archivePatient(patientId) {
 export async function findPatientByMobile(cpNumber) {
   const needle = (cpNumber ?? '').trim().toLowerCase()
   if (!needle) return null
-
-  if (!IS_SUPABASE_CONFIGURED) {
-    const { DEMO_PATIENTS } = await import('@/lib/demo-data')
-    return (
-      DEMO_PATIENTS.find(
-        (row) => !row.archived_at && (row.cp_number ?? '').trim().toLowerCase() === needle,
-      ) ?? null
-    )
-  }
 
   try {
     const { data, error } = await supabase

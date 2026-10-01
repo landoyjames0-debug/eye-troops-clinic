@@ -10,6 +10,7 @@ const PatientsPage = lazy(() => import('@/pages/patients'))
 const NewVisitPage = lazy(() => import('@/pages/new-visit'))
 const OrdersPage = lazy(() => import('@/pages/orders'))
 const SalesExpensesPage = lazy(() => import('@/pages/sales-expenses'))
+const ProfilePage = lazy(() => import('@/pages/profile'))
 
 function LazyPage({ Component }) {
   return (
@@ -77,6 +78,7 @@ export function AppRouter() {
           <Route path="/new-visit" element={<LazyPage Component={NewVisitPage} />} />
           <Route path="/orders" element={<LazyPage Component={OrdersPage} />} />
           <Route path="/sales-expenses" element={<LazyPage Component={SalesExpensesPage} />} />
+          <Route path="/profile" element={<LazyPage Component={ProfilePage} />} />
         </Route>
 
         <Route path="/" element={<Navigate to="/today" replace />} />

@@ -223,7 +223,11 @@ begin
   values (
     new.id,
     new.email,
-    coalesce(new.raw_user_meta_data ->> 'full_name', split_part(coalesce(new.email, ''), '@', 1))
+    coalesce(
+      nullif(btrim(new.raw_user_meta_data ->> 'full_name'), ''),
+      nullif(split_part(coalesce(new.email, ''), '@', 1), ''),
+      'Clinic staff'
+    )
   )
   on conflict (id) do nothing;
   return new;
@@ -234,11 +238,23 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
+-- Also create staff rows for Auth users who existed before this migration.
+insert into public.users (id, email, full_name)
+select
+  id,
+  email,
+  coalesce(
+    nullif(btrim(raw_user_meta_data ->> 'full_name'), ''),
+    nullif(split_part(coalesce(email, ''), '@', 1), ''),
+    'Clinic staff'
+  )
+from auth.users
+where email is not null
+on conflict (id) do nothing;
+
 -- ── Row Level Security ───────────────────────────────────────────────────
--- Every clinic staff member may read and write application data. There are no
--- sensitive clinical fields beyond what staff already need, and there is no
--- self-service signup, so a single authenticated policy per table is enough.
--- Anonymous users get nothing.
+-- Authenticated staff can read shared clinic records. Writes are limited to
+-- the operations used by the app; anonymous users receive no table access.
 alter table public.users        enable row level security;
 alter table public.patients     enable row level security;
 alter table public.visits       enable row level security;
@@ -248,7 +264,8 @@ alter table public.payments     enable row level security;
 alter table public.order_status_history enable row level security;
 alter table public.expenses     enable row level security;
 
-create policy "staff read users"   on public.users for select to authenticated using (true);
+create policy "staff read own user profile" on public.users
+  for select to authenticated using (id = auth.uid());
 create policy "staff read patients"    on public.patients     for select to authenticated using (true);
 create policy "staff read visits"      on public.visits       for select to authenticated using (true);
 create policy "staff read prescriptions" on public.prescriptions for select to authenticated using (true);
@@ -257,28 +274,90 @@ create policy "staff read payments"    on public.payments     for select to auth
 create policy "staff read order status history" on public.order_status_history for select to authenticated using (true);
 create policy "staff read expenses"    on public.expenses     for select to authenticated using (true);
 
-create policy "staff manage patients"     on public.patients     for all to authenticated using (true) with check (true);
-create policy "staff manage visits"       on public.visits       for all to authenticated using (true) with check (true);
-create policy "staff manage prescriptions" on public.prescriptions for all to authenticated using (true) with check (true);
-create policy "staff manage orders"       on public.orders       for all to authenticated using (true) with check (true);
-create policy "staff manage payments"     on public.payments     for all to authenticated using (true) with check (true);
-create policy "staff manage order status history" on public.order_status_history for all to authenticated using (true) with check (true);
-create policy "staff manage expenses"     on public.expenses     for all to authenticated using (true) with check (true);
+-- Revoke broad default table writes before granting app-specific operations.
+revoke insert, update, delete on
+  public.users,
+  public.patients,
+  public.visits,
+  public.prescriptions,
+  public.orders,
+  public.payments,
+  public.order_status_history,
+  public.expenses
+from anon, authenticated;
 
--- Staff may correct their own profile, but not other accounts or roles.
-create or replace function public.is_admin()
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select exists (
-    select 1 from public.users where id = auth.uid() and role = 'admin'
-  );
-$$;
+grant select on
+  public.users,
+  public.patients,
+  public.visits,
+  public.prescriptions,
+  public.orders,
+  public.payments,
+  public.order_status_history,
+  public.expenses
+to authenticated;
 
+-- A staff member can update only their own name, never their role or email.
+grant update (full_name) on public.users to authenticated;
 create policy "staff update own profile" on public.users
   for update to authenticated
-  using (id = auth.uid() or public.is_admin())
-  with check (id = auth.uid() or public.is_admin());
+  using (id = auth.uid())
+  with check (id = auth.uid());
+
+grant insert (full_name, cp_number, address, notes) on public.patients to authenticated;
+grant update (full_name, cp_number, address, notes, archived_at) on public.patients to authenticated;
+create policy "staff insert patients" on public.patients
+  for insert to authenticated with check (true);
+create policy "staff update patients" on public.patients
+  for update to authenticated using (true) with check (true);
+
+grant insert (patient_id, visit_date, notes) on public.visits to authenticated;
+grant delete on public.visits to authenticated;
+create policy "staff insert visits" on public.visits
+  for insert to authenticated with check (true);
+-- Visit creation rolls back its own visit if prescription insertion fails.
+create policy "staff rollback own visits" on public.visits
+  for delete to authenticated using (created_by = auth.uid());
+
+grant insert (
+  visit_id,
+  od_sph,
+  od_cyl,
+  od_axis,
+  od_add,
+  od_pd,
+  os_sph,
+  os_cyl,
+  os_axis,
+  os_add,
+  os_pd
+) on public.prescriptions to authenticated;
+create policy "staff insert prescriptions" on public.prescriptions
+  for insert to authenticated with check (true);
+
+grant insert (order_number, patient_id, visit_id, description, total_amount, status, order_date)
+  on public.orders to authenticated;
+grant update (description, total_amount, status) on public.orders to authenticated;
+create policy "staff insert orders" on public.orders
+  for insert to authenticated with check (true);
+create policy "staff update orders" on public.orders
+  for update to authenticated using (true) with check (true);
+
+grant insert (order_id, amount, payment_date, notes) on public.payments to authenticated;
+grant update (status, voided_at) on public.payments to authenticated;
+create policy "staff insert payments" on public.payments
+  for insert to authenticated with check (true);
+create policy "staff void completed payments" on public.payments
+  for update to authenticated
+  using (status = 'COMPLETED')
+  with check (status = 'VOIDED' and voided_at is not null);
+
+grant insert (expense_date, category, amount, description) on public.expenses to authenticated;
+grant update (expense_date, category, amount, description) on public.expenses to authenticated;
+grant delete on public.expenses to authenticated;
+create policy "staff insert expenses" on public.expenses
+  for insert to authenticated with check (true);
+create policy "staff update expenses" on public.expenses
+  for update to authenticated using (true) with check (true);
+create policy "staff delete expenses" on public.expenses
+  for delete to authenticated using (true);
