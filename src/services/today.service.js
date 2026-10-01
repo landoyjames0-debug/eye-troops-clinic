@@ -1,24 +1,9 @@
-import { IS_SUPABASE_CONFIGURED } from '@/lib/constants'
 import { supabase } from '@/lib/supabase'
 import { toAppError } from '@/utils/errors'
 import { endOfDayIso, startOfDayIso, toDateKey } from '@/utils/dates'
 
 /** Visits scheduled for the clinic's current local day, earliest first. */
 export async function listVisitsForToday(date = toDateKey()) {
-  if (!IS_SUPABASE_CONFIGURED) {
-    const { DEMO_PATIENTS, DEMO_VISITS } = await import('@/lib/demo-data')
-    return DEMO_VISITS.filter((visit) => visit.visit_date.startsWith(date))
-      .sort((a, b) => Date.parse(a.visit_date) - Date.parse(b.visit_date))
-      .map((visit) => {
-        const patient = DEMO_PATIENTS.find((row) => row.id === visit.patient_id)
-        return {
-          ...visit,
-          patient_name: patient?.full_name ?? 'Unknown patient',
-          cp_number: patient?.cp_number ?? null,
-        }
-      })
-  }
-
   try {
     const visits = await supabase
       .from('visits')

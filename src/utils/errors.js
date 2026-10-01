@@ -9,6 +9,9 @@
 const MESSAGES = {
   auth: 'Unable to sign in. Check your email and password and try again.',
   authFailed: 'Invalid email or password.',
+  supabaseConfig: 'Supabase is not configured. Add the project URL and API key to .env.local, then restart the app.',
+  updateProfile: 'Unable to update your profile. Please try again.',
+  updatePassword: 'Unable to update your password. Please check the password and try again.',
   savePatient: 'Unable to save the patient. Please check the information and try again.',
   updatePatient: 'Unable to update the patient. Please check the information and try again.',
   deletePatient: 'Unable to remove the patient right now.',

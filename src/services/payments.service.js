@@ -1,8 +1,7 @@
-import { IS_SUPABASE_CONFIGURED, paymentMethodOf } from '@/lib/constants'
+import { paymentMethodOf } from '@/lib/constants'
 import { supabase, unwrap } from '@/lib/supabase'
 import { toAppError } from '@/utils/errors'
 import { toAmount, toDateKey } from '@/utils/dates'
-import { isCompletedPayment } from '@/services/orders.service'
 
 /**
  * Every payment is an immutable record. Nothing here updates or deletes an
@@ -30,19 +29,6 @@ export async function createPayment(input) {
     notes: input.notes.trim() || null,
   }
 
-  if (!IS_SUPABASE_CONFIGURED) {
-    const { DEMO_ALL_PAYMENTS } = await import('@/lib/demo-data')
-    const payment = {
-      id: `pay-${DEMO_ALL_PAYMENTS.length + 1}`,
-      ...payload,
-      status: 'COMPLETED',
-      created_by: null,
-      created_at: new Date().toISOString(),
-    }
-    DEMO_ALL_PAYMENTS.push(payment)
-    return payment
-  }
-
   try {
     return unwrap(await supabase.from('payments').insert(payload).select('*').single())
   } catch (caught) {
@@ -51,16 +37,6 @@ export async function createPayment(input) {
 }
 
 export async function listPayments(from, to) {
-  if (!IS_SUPABASE_CONFIGURED) {
-    const { DEMO_ALL_PAYMENTS } = await import('@/lib/demo-data')
-    return DEMO_ALL_PAYMENTS.filter(
-      (payment) =>
-        isCompletedPayment(payment) &&
-        (!from || payment.payment_date >= from) &&
-        (!to || payment.payment_date <= to),
-    )
-  }
-
   try {
     let query = supabase.from('payments').select('*').eq('status', 'COMPLETED')
     if (from) query = query.gte('payment_date', from)
@@ -77,14 +53,6 @@ export async function listPayments(from, to) {
  */
 export async function voidPayment(paymentId) {
   const stamp = new Date().toISOString()
-
-  if (!IS_SUPABASE_CONFIGURED) {
-    const { DEMO_ALL_PAYMENTS } = await import('@/lib/demo-data')
-    const payment = DEMO_ALL_PAYMENTS.find((row) => row.id === paymentId)
-    if (!payment) throw toAppError(new Error('not found'), 'notFound')
-    Object.assign(payment, { status: 'VOIDED', voided_at: stamp, updated_at: stamp })
-    return payment
-  }
 
   try {
     return unwrap(

@@ -1,4 +1,4 @@
-import { IS_SUPABASE_CONFIGURED, ORDER_NUMBER_PREFIX } from '@/lib/constants'
+import { ORDER_NUMBER_PREFIX } from '@/lib/constants'
 import { supabase, unwrap } from '@/lib/supabase'
 import { toAppError } from '@/utils/errors'
 import { toAmount, toDateKey } from '@/utils/dates'
@@ -49,24 +49,6 @@ export async function listOrders(search = '', status = 'ALL', paymentFilter = 'A
     return true
   }
 
-  if (!IS_SUPABASE_CONFIGURED) {
-    const { DEMO_ORDERS, DEMO_ALL_PAYMENTS, DEMO_PATIENTS } = await import('@/lib/demo-data')
-    const term = search.trim().toLowerCase()
-    return DEMO_ORDERS.filter((order) => {
-      const patient = DEMO_PATIENTS.find((row) => row.id === order.patient_id)
-      const matchesStatus = status === 'ALL' || order.status === status
-      const matchesTerm =
-        !term ||
-        order.order_number.toLowerCase().includes(term) ||
-        (patient?.full_name.toLowerCase().includes(term) ?? false) ||
-        (patient?.cp_number ?? '').includes(term)
-      return matchesStatus && matchesTerm
-    })
-      .map((order) => withTotals(order, DEMO_ALL_PAYMENTS))
-      .filter(matchesPayment)
-      .sort((a, b) => Date.parse(b.order_date) - Date.parse(a.order_date))
-  }
-
   try {
     let query = supabase.from('orders').select('*')
     if (status !== 'ALL') query = query.eq('status', status)
@@ -99,16 +81,6 @@ export async function listOrders(search = '', status = 'ALL', paymentFilter = 'A
 }
 
 export async function getOrderDetail(orderId) {
-  if (!IS_SUPABASE_CONFIGURED) {
-    const { DEMO_ORDERS, DEMO_ALL_PAYMENTS, DEMO_PATIENTS } = await import('@/lib/demo-data')
-    const order = DEMO_ORDERS.find((row) => row.id === orderId)
-    if (!order) throw toAppError(new Error('not found'), 'notFound')
-    return {
-      order: withTotals(order, DEMO_ALL_PAYMENTS),
-      patient: DEMO_PATIENTS.find((row) => row.id === order.patient_id) ?? null,
-    }
-  }
-
   try {
     const orderResult = await supabase.from('orders').select('*').eq('id', orderId).maybeSingle()
     if (orderResult.error) throw orderResult.error
@@ -135,13 +107,6 @@ export async function getOrderDetail(orderId) {
  * drawer renders created → in lab → ready → claimed top to bottom.
  */
 export async function getOrderStatusHistory(orderId) {
-  if (!IS_SUPABASE_CONFIGURED) {
-    const { DEMO_ORDER_STATUS_HISTORY } = await import('@/lib/demo-data')
-    return DEMO_ORDER_STATUS_HISTORY.filter((row) => row.order_id === orderId).sort(
-      (a, b) => Date.parse(a.changed_at) - Date.parse(b.changed_at),
-    )
-  }
-
   try {
     const { data, error } = await supabase
       .from('order_status_history')
@@ -178,28 +143,6 @@ export async function createOrder(input) {
     order_date: toDateKey(),
   }
 
-  if (!IS_SUPABASE_CONFIGURED) {
-    const { DEMO_ORDERS, DEMO_ORDER_STATUS_HISTORY } = await import('@/lib/demo-data')
-    const order = {
-      id: `ord-${DEMO_ORDERS.length + 1}`,
-      order_number: buildOrderNumber(DEMO_ORDERS.length + 1),
-      ...payload,
-      created_by: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
-    DEMO_ORDERS.unshift(order)
-    // Mirrors the orders_log_status trigger, which writes the trail in Postgres.
-    DEMO_ORDER_STATUS_HISTORY.push({
-      id: `osh-${order.id}-0`,
-      order_id: order.id,
-      status: order.status,
-      changed_at: order.created_at,
-      changed_by: null,
-    })
-    return order
-  }
-
   try {
     const orderNumber = await nextOrderNumber()
     return unwrap(
@@ -215,22 +158,6 @@ export async function createOrder(input) {
 }
 
 export async function updateOrderStatus(orderId, status) {
-  if (!IS_SUPABASE_CONFIGURED) {
-    const { DEMO_ORDERS, DEMO_ORDER_STATUS_HISTORY } = await import('@/lib/demo-data')
-    const order = DEMO_ORDERS.find((row) => row.id === orderId)
-    if (!order) throw toAppError(new Error('not found'), 'notFound')
-    order.status = status
-    order.updated_at = new Date().toISOString()
-    DEMO_ORDER_STATUS_HISTORY.push({
-      id: `osh-${orderId}-${DEMO_ORDER_STATUS_HISTORY.length}`,
-      order_id: orderId,
-      status,
-      changed_at: order.updated_at,
-      changed_by: null,
-    })
-    return order
-  }
-
   try {
     // `updated_at` is maintained by the orders_touch_updated_at trigger, so the
     // client never sets it — that keeps it correct even if the trigger changes.
@@ -253,14 +180,6 @@ export async function updateOrder(orderId, input) {
   const payload = {
     description: input.description?.trim() || null,
     total_amount: toAmount(input.total_amount),
-  }
-
-  if (!IS_SUPABASE_CONFIGURED) {
-    const { DEMO_ORDERS } = await import('@/lib/demo-data')
-    const order = DEMO_ORDERS.find((row) => row.id === orderId)
-    if (!order) throw toAppError(new Error('not found'), 'notFound')
-    Object.assign(order, payload, { updated_at: new Date().toISOString() })
-    return order
   }
 
   try {

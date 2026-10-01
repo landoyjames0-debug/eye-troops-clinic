@@ -6,6 +6,8 @@ import {
   LayoutDashboard,
   LogOut,
   PlusCircle,
+  Settings,
+  UserRound,
   Users,
   Wallet,
 } from 'lucide-react'
@@ -91,9 +93,9 @@ function NavItem({ to, label, icon: Icon, className, onNavigate }) {
 }
 
 export function AppShell() {
-  const { profile, isDemo, signOut } = useAuth()
+  const { profile, signOut } = useAuth()
   const navigate = useNavigate()
-  const displayName = isDemo ? 'Demo session' : (profile?.full_name ?? 'Signed in')
+  const displayName = profile?.full_name ?? 'Signed in'
   const [confirmSignOut, setConfirmSignOut] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
 
@@ -125,7 +127,15 @@ export function AppShell() {
         </nav>
 
         <div className="border-t border-champagne p-4">
-          <div className="flex items-center gap-2.5 rounded-[var(--radius-control)] px-1 py-1">
+          <NavLink
+            to="/profile"
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-2.5 rounded-control px-1 py-1 transition-colors hover:bg-ivory',
+                isActive && 'bg-ivory',
+              )
+            }
+          >
             <span
               className="flex size-8 shrink-0 items-center justify-center rounded-full bg-gold-light text-[11px] font-semibold text-gold-dark"
               aria-hidden="true"
@@ -142,10 +152,11 @@ export function AppShell() {
                 {displayName}
               </span>
               <span className="block text-[11px] text-warmgray">
-                {isDemo ? 'Sample data' : 'Signed in'}
+                Signed in
               </span>
             </span>
-          </div>
+            <Settings className="size-4 text-warmgray" aria-hidden="true" />
+          </NavLink>
 
           <button
             type="button"
@@ -161,14 +172,23 @@ export function AppShell() {
       {/* Header — mobile */}
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-champagne bg-surface/90 px-4 py-3 backdrop-blur-sm lg:hidden">
         <BrandMark />
-        <button
-          type="button"
-          onClick={() => setConfirmSignOut(true)}
-          className="rounded-[var(--radius-control)] p-2 text-warmgray transition-colors hover:bg-ivory hover:text-espresso"
-          aria-label="Sign out"
-        >
-          <LogOut className="size-[18px]" strokeWidth={1.7} aria-hidden="true" />
-        </button>
+        <div className="flex items-center gap-1">
+          <NavLink
+            to="/profile"
+            aria-label="Profile and settings"
+            className="rounded-control p-2 text-warmgray transition-colors hover:bg-ivory hover:text-espresso"
+          >
+            <UserRound className="size-[18px]" strokeWidth={1.7} aria-hidden="true" />
+          </NavLink>
+          <button
+            type="button"
+            onClick={() => setConfirmSignOut(true)}
+            className="rounded-[var(--radius-control)] p-2 text-warmgray transition-colors hover:bg-ivory hover:text-espresso"
+            aria-label="Sign out"
+          >
+            <LogOut className="size-[18px]" strokeWidth={1.7} aria-hidden="true" />
+          </button>
+        </div>
       </header>
 
       {/* Bottom tab bar — mobile. Five destinations fit without scrolling, so
@@ -208,11 +228,7 @@ export function AppShell() {
       <ConfirmDialog
         open={confirmSignOut}
         title="Sign out?"
-        message={
-          isDemo
-            ? 'You will leave the demo session and return to the login screen. Unsaved work in open forms may be lost.'
-            : 'You will need to sign in again to access the clinic dashboard.'
-        }
+        message="You will need to sign in again to access the clinic dashboard."
         confirmLabel="Sign out"
         cancelLabel="Stay signed in"
         tone="neutral"
