@@ -6,14 +6,17 @@ import {
   ClipboardList,
   Eye,
   EyeOff,
+  LockKeyhole,
   LogIn,
+  Mail,
   Shield,
   Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ErrorNote } from '@/components/ui/feedback'
-import { APP_NAME, APP_SUBTITLE, IS_SUPABASE_CONFIGURED, LOGO_PATH } from '@/lib/constants'
+import { APP_NAME, LOGO_PATH } from '@/lib/constants'
+import { isSupabaseConfigured } from '@/lib/supabase'
 import { useAuth } from '@/hooks/use-auth'
 import { AppError } from '@/utils/errors'
 
@@ -73,32 +76,15 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative min-h-dvh overflow-hidden">
+    <div className="login-page relative min-h-dvh overflow-hidden">
       {/* Ambient background — full viewport so mobile never feels like a blank white sheet. */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-gold-light via-ivory to-champagne/50" />
-        <div
-          className="absolute inset-0 opacity-[0.45]"
-          style={{
-            backgroundImage:
-              'radial-gradient(circle at 1px 1px, rgb(212 153 58 / 0.11) 1px, transparent 0)',
-            backgroundSize: '28px 28px',
-          }}
-        />
-        <span className="absolute -top-24 right-[10%] size-[22rem] rounded-full bg-gold/15 blur-3xl" />
-        <span className="absolute top-[35%] -left-20 size-[18rem] rounded-full bg-gold-light blur-3xl" />
-        <span className="absolute -bottom-32 right-[20%] size-[26rem] rounded-full bg-champagne/70 blur-3xl" />
       </div>
 
-      <div className="relative lg:grid lg:min-h-dvh lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-      {/* Brand panel — hidden on small screens, where the logo moves above the form. */}
-      <section className="relative hidden overflow-hidden border-r border-champagne/70 bg-gradient-to-br from-gold-light/40 via-ivory/80 to-transparent px-10 py-12 lg:flex lg:flex-col lg:justify-between xl:px-16">
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-          <span className="absolute -top-40 -left-40 size-[30rem] rounded-full border border-gold/20" />
-          <span className="absolute -top-24 -left-24 size-[22rem] rounded-full border border-gold/12" />
-          <span className="absolute -bottom-52 -right-40 size-[34rem] rounded-full border border-gold/15" />
-          <span className="absolute -bottom-36 -right-24 size-[24rem] rounded-full border border-gold/10" />
-        </div>
+      <div className="login-shell relative lg:grid lg:min-h-dvh lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+      <section className="login-brand relative flex flex-col justify-between overflow-hidden border-r border-champagne/70 bg-gradient-to-br from-gold-light/40 via-ivory/80 to-transparent px-5 py-6 md:px-8 md:py-10 lg:px-10 xl:px-16">
+        <div aria-hidden="true" className="login-iris pointer-events-none absolute inset-0 overflow-hidden" />
 
         <div className="relative flex items-center gap-4 pt-2">
           <img
@@ -118,72 +104,37 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="relative mx-auto max-w-lg flex-1 py-10 text-center lg:flex lg:flex-col lg:justify-center">
-          <p className="text-[11px] font-semibold tracking-[0.15em] text-gold-dark uppercase mb-4">
+        <div className="login-brand-copy relative mx-auto max-w-lg flex-1 py-6 text-left md:py-10 md:text-center lg:flex lg:flex-col lg:justify-center">
+          <p className="login-eyebrow text-[11px] font-semibold tracking-[0.15em] text-gold-dark uppercase mb-2 md:mb-4">
             EYE TROOPS OPTICAL CLINIC
           </p>
-          <h2 className="font-display text-[32px] lg:text-[36px] xl:text-[40px] leading-[1.15] font-semibold tracking-tight text-espresso mb-6">
+          <h2 className="login-headline font-display text-[25px] leading-[1.15] font-semibold tracking-tight text-espresso mb-3 md:text-[32px] lg:text-[36px] xl:text-[40px] md:mb-6">
             Care for every patient.<br />
             Clarity for every record.
           </h2>
-          <p className="text-[15px] lg:text-[16px] leading-relaxed text-warmgray max-w-md mx-auto">
+          <p className="login-brand-description text-[13px] md:text-[15px] lg:text-[16px] leading-relaxed text-warmgray max-w-md md:mx-auto">
             Keep patient records, prescriptions, orders, payments, and daily clinic operations organized in one place.
           </p>
         </div>
 
-        {/* Subtle gold accent line — decorative, not competing. */}
-        <div aria-hidden="true" className="absolute bottom-12 left-10 right-10 xl:left-16 xl:right-16 h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent" />
+        <ul className="login-features hidden space-y-2.5 md:grid md:grid-cols-1">
+          {LOGIN_FEATURES.map(({ icon: Icon, label }) => (
+            <li key={label} className="login-feature flex items-center gap-3 text-sm text-warmgray">
+              <span className="login-feature-icon flex size-9 shrink-0 items-center justify-center rounded-lg bg-gold-light/80 text-gold-dark">
+                <Icon className="size-4" strokeWidth={1.8} aria-hidden="true" />
+              </span>
+              {label}
+            </li>
+          ))}
+        </ul>
       </section>
 
-      <section className="relative flex min-h-[calc(100dvh-0px)] items-center justify-center px-4 py-10 sm:px-8 sm:py-14 lg:min-h-dvh lg:px-12 xl:px-20">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 hidden overflow-hidden lg:block"
-        >
-          <span className="absolute top-[15%] right-[8%] size-48 rounded-full border border-gold/15" />
-          <span className="absolute bottom-[20%] left-[12%] size-32 rounded-full border border-champagne/80" />
-        </div>
+      <section className="login-form-panel relative flex min-h-[calc(100dvh-0px)] items-center justify-center px-4 py-6 sm:px-8 sm:py-10 lg:min-h-dvh lg:px-12 xl:px-20">
+        <div className="relative w-full max-w-[440px]">
+          <div className="login-card overflow-hidden rounded-[24px] border border-champagne/80 bg-surface/95 shadow-raised backdrop-blur-sm">
+            <div className="login-card-accent h-[4px] bg-gradient-to-r from-gold-light via-gold to-gold-dark" aria-hidden="true" />
 
-        <div className="relative w-full max-w-[420px]">
-          <div className="overflow-hidden rounded-[var(--radius-card)] border border-champagne/80 bg-surface/95 shadow-raised backdrop-blur-sm">
-            <div
-              className="h-[3px] bg-gradient-to-r from-gold-light via-gold to-gold-dark"
-              aria-hidden="true"
-            />
-
-            <div className="p-6 sm:p-8">
-          {/* Logo above the form on small screens. */}
-          <div className="mb-8 flex flex-col items-center gap-3 text-center lg:hidden">
-            <img
-              src={LOGO_PATH}
-              alt=""
-              width={40}
-              height={40}
-              className="size-10 shrink-0 rounded-lg object-contain"
-            />
-            <div className="leading-tight">
-              <p className="font-display text-base font-extrabold tracking-tight text-espresso">
-                {APP_NAME}
-              </p>
-              <p className="text-[9px] font-semibold tracking-[0.2em] text-gold">
-                {APP_SUBTITLE}
-              </p>
-            </div>
-            {/* Shortened brand statement on mobile. */}
-            <div className="mt-4 max-w-xs mx-auto">
-              <p className="text-[10px] font-semibold tracking-[0.15em] text-gold-dark uppercase mb-2">
-                EYE TROOPS OPTICAL CLINIC
-              </p>
-              <p className="font-display text-[18px] leading-[1.2] font-semibold tracking-tight text-espresso mb-3">
-                Care for every patient.<br />
-                Clarity for every record.
-              </p>
-              <p className="text-[13px] leading-relaxed text-warmgray">
-                Patient records, prescriptions, orders, payments, and daily operations — organized.
-              </p>
-            </div>
-          </div>
-
+            <div className="login-card-content p-6 sm:p-8">
           <div className="hidden items-center gap-3 border-b border-champagne/70 pb-5 lg:flex">
             <span className="flex size-11 items-center justify-center rounded-xl bg-gradient-to-br from-gold-light to-champagne text-gold-dark">
               <Shield className="size-5" strokeWidth={1.8} aria-hidden="true" />
@@ -211,17 +162,19 @@ export default function LoginPage() {
             </p>
           )}
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-5 sm:mt-8" noValidate>
+          <form onSubmit={handleSubmit} className="login-form mt-6 space-y-5 sm:mt-8" noValidate>
             <Input
               id="email"
               label="Email Address"
               type="email"
               autoComplete="username"
               placeholder="Enter your email address"
+              leading={<Mail className="size-[17px]" strokeWidth={1.8} />}
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               autoFocus={!remembered}
               required
+              className="login-input"
             />
 
             <Input
@@ -230,16 +183,18 @@ export default function LoginPage() {
               type={showPassword ? 'text' : 'password'}
               autoComplete="current-password"
               placeholder="Enter your password"
+              leading={<LockKeyhole className="size-[17px]" strokeWidth={1.8} />}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               required
+              className="login-input"
               trailing={
                 <button
                   type="button"
                   onClick={() => setShowPassword((value) => !value)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                   aria-pressed={showPassword}
-                  className="rounded p-1.5 text-warmgray transition-colors hover:text-espresso"
+                  className="login-password-toggle rounded p-1.5 text-warmgray transition-colors hover:text-espresso"
                 >
                   {showPassword ? (
                     <EyeOff className="size-[18px]" strokeWidth={1.7} aria-hidden="true" />
@@ -250,13 +205,13 @@ export default function LoginPage() {
               }
             />
 
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <label className="flex cursor-pointer items-center gap-2 text-[13px] text-warmgray">
+            <div className="login-form-options flex flex-wrap items-center justify-between gap-3">
+              <label className="login-remember flex cursor-pointer items-center gap-2 text-[13px] text-warmgray">
                 <input
                   type="checkbox"
                   checked={remember}
                   onChange={(event) => setRemember(event.target.checked)}
-                  className="size-4 rounded border-champagne accent-[var(--color-gold-dark)]"
+                  className="login-checkbox size-4 rounded border-champagne accent-[var(--color-gold-dark)]"
                 />
                 Remember me
               </label>
@@ -266,7 +221,7 @@ export default function LoginPage() {
                 onClick={() =>
                   setNotice('Please ask a clinic administrator to reset your password.')
                 }
-                className="text-[13px] font-medium text-gold-dark underline-offset-4 hover:underline"
+                className="login-forgot text-[13px] font-medium text-gold-dark underline-offset-4 hover:underline"
               >
                 Forgot password?
               </button>
@@ -276,53 +231,39 @@ export default function LoginPage() {
 
             {notice && (
               <p
-                className="rounded-[var(--radius-control)] border border-champagne bg-ivory/80 px-3.5 py-2.5 text-[13px] text-warmgray"
+                className="login-notice rounded-[var(--radius-control)] border border-champagne bg-ivory/80 px-3.5 py-2.5 text-[13px] text-warmgray"
                 role="status"
               >
                 {notice}
               </p>
             )}
 
-            <Button type="submit" loading={loading} loadingText="Signing in..." className="w-full">
+            {!isSupabaseConfigured && (
+              <p className="login-notice" role="status">
+                Supabase is not configured. Add the project URL and API key to .env.local, then restart the app.
+              </p>
+            )}
+
+            <Button
+              type="submit"
+              loading={loading}
+              loadingText="Signing in..."
+              disabled={!isSupabaseConfigured}
+              className="login-submit w-full"
+            >
               <LogIn className="size-4" aria-hidden="true" />
               Sign In
             </Button>
           </form>
 
-          <div className="mt-6 flex items-center justify-center gap-2 text-xs text-warmgray">
+          <div className="login-security-note mt-6 flex items-center justify-center gap-2 text-xs text-warmgray">
             <Shield className="size-3.5 text-gold-dark/80" strokeWidth={2} aria-hidden="true" />
             <span>Authorized clinic personnel only.</span>
           </div>
 
-          {!IS_SUPABASE_CONFIGURED && (
-            <div className="mt-4 rounded-[var(--radius-control)] border border-gold/25 bg-gradient-to-br from-gold-light/50 to-ivory px-3.5 py-3">
-              <p className="text-[11px] font-semibold tracking-wide text-gold-dark uppercase">
-                Sample data mode
-              </p>
-              <p className="mt-1.5 text-[12px] leading-relaxed text-warmgray">
-                Email{' '}
-                <span className="tabular font-semibold text-espresso">demo@eyetroops.ph</span>
-                <br />
-                Password <span className="tabular font-semibold text-espresso">demo1234</span>
-              </p>
-            </div>
-          )}
             </div>
           </div>
 
-          <ul className="mt-6 hidden space-y-2.5 lg:block">
-            {LOGIN_FEATURES.map(({ icon: Icon, label }) => (
-              <li
-                key={label}
-                className="flex items-center gap-3 rounded-lg border border-champagne/60 bg-surface/80 px-3.5 py-2.5 text-[12px] text-warmgray shadow-sm"
-              >
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gold-light/80 text-gold-dark">
-                  <Icon className="size-4" strokeWidth={1.8} aria-hidden="true" />
-                </span>
-                {label}
-              </li>
-            ))}
-          </ul>
         </div>
       </section>
       </div>

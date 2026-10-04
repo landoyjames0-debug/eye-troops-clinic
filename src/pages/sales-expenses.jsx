@@ -141,6 +141,13 @@ export default function SalesExpensesPage() {
     () => (expenses.data ? totalExpenses(expenses.data) : 0),
     [expenses.data],
   )
+  const monthlyTotals = useMemo(() => {
+    const rows = series.data ?? []
+    const sales = toAmount(rows.reduce((sum, row) => sum + Number(row.sales), 0))
+    const expenses = toAmount(rows.reduce((sum, row) => sum + Number(row.expenses), 0))
+
+    return { sales, expenses, net: toAmount(sales - expenses) }
+  }, [series.data])
   const net = toAmount(yearSales - yearExpensesTotal)
   const expenseCount = expenseRows.length
   const paymentCount = paymentRows.length
@@ -259,7 +266,7 @@ export default function SalesExpensesPage() {
             </span>
           </SectionTitle>
 
-          <Card className="overflow-hidden">
+          <Card className="monthly-breakdown-card overflow-hidden">
           {series.error ? (
             <div className="p-5">
               <ErrorNote message={series.error} />
@@ -315,6 +322,24 @@ export default function SalesExpensesPage() {
                   )
                 })}
               </TBody>
+              <tfoot>
+                <tr className="year-total-row sticky bottom-0 z-10">
+                  <TD className="border-t-2 border-[#C98A1B] bg-[#FBEBD3] py-4 text-sm font-bold text-espresso">
+                    Total {year}
+                  </TD>
+                  <TD className="tabular border-t-2 border-[#C98A1B] bg-[#FBEBD3] py-4 text-right text-[15px] font-bold text-espresso">
+                    {formatPeso(monthlyTotals.sales)}
+                  </TD>
+                  <TD className="tabular border-t-2 border-[#C98A1B] bg-[#FBEBD3] py-4 text-right text-[15px] font-bold text-espresso">
+                    {formatPeso(monthlyTotals.expenses)}
+                  </TD>
+                  <TD className="tabular border-t-2 border-[#C98A1B] bg-[#FBEBD3] py-4 text-right text-[15px] font-bold">
+                    <span className={monthlyTotals.net < 0 ? 'text-error' : 'text-success'}>
+                      {formatPeso(monthlyTotals.net)}
+                    </span>
+                  </TD>
+                </tr>
+              </tfoot>
             </Table>
           )}
         </Card>
