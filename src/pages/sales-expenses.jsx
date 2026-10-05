@@ -957,12 +957,12 @@ export default function SalesExpensesPage() {
                 className="inline-flex min-h-9 items-center gap-2 rounded-control px-1 text-[12px] font-medium text-warmgray focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
               >
                 <span className={cn(
-                  'relative h-5 w-9 rounded-full border transition-colors',
-                  compareEnabled ? 'border-gold bg-gold' : 'border-champagne bg-ivory',
+                  'relative inline-block h-5 w-9 shrink-0 overflow-hidden rounded-full border transition-colors duration-200',
+                  compareEnabled ? 'border-gold bg-gold' : 'border-champagne bg-ivory dark:bg-surface',
                 )}>
                   <span className={cn(
-                    'absolute top-0.5 size-3.5 rounded-full bg-surface shadow transition-transform',
-                    compareEnabled ? 'translate-x-4.5' : 'translate-x-0.5',
+                    'absolute top-[3px] left-[3px] size-3 rounded-full bg-surface shadow-sm transition-transform duration-200',
+                    compareEnabled ? 'translate-x-4' : 'translate-x-0',
                   )} />
                 </span>
                 Compare with previous period

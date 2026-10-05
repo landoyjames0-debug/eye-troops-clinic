@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   CalendarCheck,
+  Check,
   CheckCircle2,
   ClipboardList,
   Eye,
@@ -276,13 +277,29 @@ export default function LoginPage() {
             />
 
             <div className="login-form-options flex flex-wrap items-center justify-between gap-3">
-              <label className="login-remember flex cursor-pointer items-center gap-2 text-[13px] text-warmgray">
+              <label className="login-remember flex cursor-pointer items-center gap-2 text-[13px] text-warmgray select-none">
                 <input
                   type="checkbox"
                   checked={remember}
                   onChange={(event) => setRemember(event.target.checked)}
-                  className="login-checkbox size-4 rounded border-champagne accent-gold-dark"
+                  className="sr-only"
                 />
+                <span
+                  aria-hidden="true"
+                  className={`inline-flex size-4 shrink-0 items-center justify-center rounded border transition-colors duration-150 ${
+                    remember
+                      ? 'border-gold-dark bg-gold-dark'
+                      : 'border-champagne bg-transparent'
+                  }`}
+                >
+                  {remember && (
+                    <Check
+                      className="size-2.5 text-white"
+                      strokeWidth={3}
+                      aria-hidden="true"
+                    />
+                  )}
+                </span>
                 Remember me
               </label>
 
