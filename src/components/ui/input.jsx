@@ -57,12 +57,13 @@ export function Field({ id, label, hint, error, required, className, children })
  *
  * `className` styles the input itself, matching the rest of the form controls.
  */
-function Control({ id, error, leading, trailing, className, ...props }) {
+function Control({ id, error, leading, trailing, inputRef, className, ...props }) {
   const describedBy = error ? `${id}-error` : undefined
 
   return (
     <div className="relative">
       <input
+        ref={inputRef}
         id={id}
         aria-invalid={error ? 'true' : undefined}
         aria-describedby={describedBy}
@@ -102,6 +103,7 @@ export function Input({
   id,
   leading,
   trailing,
+  inputRef,
   ...props
 }) {
   return (
@@ -118,6 +120,7 @@ export function Input({
         error={error}
         leading={leading}
         trailing={trailing}
+        inputRef={inputRef}
         className={className}
         {...props}
       />
@@ -157,52 +160,4 @@ export function Textarea({
   )
 }
 
-export function Select({
-  label,
-  hint,
-  error,
-  required,
-  containerClassName,
-  className,
-  id,
-  options,
-  children,
-  ...props
-}) {
-  return (
-    <Field
-      id={id ?? ''}
-      label={label}
-      hint={hint}
-      error={error}
-      required={required}
-      className={containerClassName}
-    >
-      <select
-        id={id}
-        aria-invalid={error ? 'true' : undefined}
-        aria-describedby={error ? `${id}-error` : undefined}
-        className={cn(
-          controlVariants({ invalid: Boolean(error) }),
-          'select-chevron h-11 py-0 pl-3.5 pr-9',
-          className,
-        )}
-        {...props}
-      >
-        {/* `options` keeps simple choices declarative; `children` stays
-            available for call sites that need an optgroup or custom content. */}
-        {options
-          ? options.map((option) => {
-              const value = typeof option === 'string' ? option : option.value
-              const text = typeof option === 'string' ? option : option.label
-              return (
-                <option key={value} value={value}>
-                  {text}
-                </option>
-              )
-            })
-          : children}
-      </select>
-    </Field>
-  )
-}
+export { Select } from '@/components/Select'

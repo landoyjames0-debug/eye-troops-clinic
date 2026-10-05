@@ -27,7 +27,7 @@ export function SkeletonCards({ count = 3, className }) {
       {Array.from({ length: count }, (_, index) => (
         <div
           key={index}
-          className="rounded-[var(--radius-card)] border border-champagne bg-surface p-5 shadow-card"
+          className="rounded-card border border-champagne bg-surface p-5 shadow-card"
         >
           <Skeleton className="h-3 w-24" />
           <Skeleton className="mt-3.5 h-7 w-32" />
@@ -58,7 +58,7 @@ export function ErrorNote({ message, className }) {
     <div
       role="alert"
       className={cn(
-        'flex items-start gap-2.5 rounded-[var(--radius-control)] border border-error/25 bg-error/5 px-3.5 py-2.5 text-[13px] text-error',
+        'flex items-start gap-2.5 rounded-control border border-error/25 bg-error/5 px-3.5 py-2.5 text-[13px] text-error',
         className,
       )}
     >

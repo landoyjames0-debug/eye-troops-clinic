@@ -27,7 +27,7 @@ const sizeClasses = {
 const contentClasses = [
   'fixed left-1/2 top-1/2 z-50 w-[calc(100vw-2rem)]',
   '-translate-x-1/2 -translate-y-1/2',
-  'rounded-[var(--radius-card)] border border-champagne bg-surface shadow-pop',
+  'rounded-card border border-champagne bg-surface shadow-pop',
   'max-h-[calc(100dvh-2rem)] flex flex-col',
 ].join(' ')
 
@@ -75,7 +75,7 @@ export function DialogContent({
             <DialogPrimitive.Close
               className={cn(
                 '-mt-1 -mr-1.5 flex size-9 shrink-0 items-center justify-center',
-                'rounded-[var(--radius-control)]',
+                'rounded-control',
                 'text-warmgray transition-colors',
                 'hover:bg-ivory hover:text-espresso',
                 'focus:outline-none focus:ring-2 focus:ring-gold/20 focus:ring-offset-2 focus:ring-offset-surface'
@@ -114,7 +114,7 @@ export function FullScreenDialogContent({
         className={cn(
           'fixed inset-0 z-50 flex flex-col',
           'bg-surface border border-champagne',
-          'rounded-[var(--radius-card)] sm:rounded-none sm:border-none sm:shadow-pop',
+          'rounded-card sm:rounded-none sm:border-none sm:shadow-pop',
           'max-h-full',
           className,
         )}
@@ -136,7 +136,7 @@ export function FullScreenDialogContent({
             <DialogPrimitive.Close
               className={cn(
                 '-mt-1 -mr-1.5 flex size-9 shrink-0 items-center justify-center',
-                'rounded-[var(--radius-control)]',
+                'rounded-control',
                 'text-warmgray transition-colors',
                 'hover:bg-ivory hover:text-espresso',
                 'focus:outline-none focus:ring-2 focus:ring-gold/20 focus:ring-offset-2 focus:ring-offset-surface'

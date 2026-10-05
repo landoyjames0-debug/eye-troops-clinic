@@ -58,13 +58,15 @@ export async function createVisit(input) {
   }
 }
 
+const PRESCRIPTION_COLUMNS = 'id, visit_id, od_sph, od_cyl, od_axis, od_add, od_pd, os_sph, os_cyl, os_axis, os_add, os_pd, created_at'
+
 /** The prescription attached to one visit, or null when the visit has none. */
 export async function getPrescriptionForVisit(visitId) {
   if (!visitId) return null
 
   const result = await supabase
     .from('prescriptions')
-    .select('*')
+    .select(PRESCRIPTION_COLUMNS)
     .eq('visit_id', visitId)
     .maybeSingle()
 
@@ -85,7 +87,7 @@ export async function getLatestPrescription(patientId) {
   if (!visitId) return null
 
   const rows = unwrap(
-    await supabase.from('prescriptions').select('*').eq('visit_id', visitId).limit(1),
+    await supabase.from('prescriptions').select(PRESCRIPTION_COLUMNS).eq('visit_id', visitId).limit(1),
   )
   return rows[0] ?? null
 }

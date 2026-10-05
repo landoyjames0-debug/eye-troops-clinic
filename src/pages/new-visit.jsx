@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
@@ -28,7 +28,11 @@ import { VisitDateTimeField } from '@/components/visits/visit-datetime-field'
 import { ErrorNote, Skeleton } from '@/components/ui/feedback'
 import { useAsync } from '@/hooks/use-async'
 import { useAuth } from '@/hooks/use-auth'
-import { createPatient, findPatientByMobile, listPatients } from '@/services/patients.service'
+import { useConfirm } from '@/hooks/use-confirm'
+import { useResultDialog } from '@/hooks/use-result-dialog'
+import { useSupabaseHealth } from '@/hooks/use-supabase-health'
+import { createPatient, findPatientByMobile, listPatientRoster } from '@/services/patients.service'
+import { invalidateClinicQueries } from '@/lib/query-client'
 import { createVisit, hasPrescription } from '@/services/visits.service'
 import { createOrder } from '@/services/orders.service'
 import { createPayment, paymentTypeFor } from '@/services/payments.service'
@@ -196,8 +200,8 @@ function PrescriptionGrid({ rx, setRx }) {
   ]
 
   return (
-    <div className="overflow-x-auto rounded-[var(--radius-control)] border border-champagne">
-      <table className="w-full min-w-[520px] border-collapse text-sm">
+    <div className="overflow-x-auto rounded-control border border-champagne">
+      <table className="w-full min-w-130 border-collapse text-sm">
         <thead>
           <tr className="border-b border-champagne bg-ivory/70">
             <th className="w-16 px-3 py-2.5 text-left text-[11px] font-semibold tracking-wide text-warmgray uppercase">
@@ -273,6 +277,10 @@ export default function NewVisitPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { userId } = useAuth()
+  const confirm = useConfirm()
+  const resultDialog = useResultDialog()
+  const { isOnline } = useSupabaseHealth()
+  const saveProgressRef = useRef({})
 
   const patientId = searchParams.get('patient')
   const selectPatient = (id) => {
@@ -302,9 +310,10 @@ export default function NewVisitPage() {
   const [saving, setSaving] = useState(false)
 
   const patients = useAsync(
-    () => (mode === 'existing' ? listPatients(deferredSearch) : Promise.resolve([])),
+    () => (mode === 'existing' ? listPatientRoster(deferredSearch) : Promise.resolve([])),
     [deferredSearch, mode],
     'loadPatients',
+    { key: 'visit-patient-search' },
   )
 
   const [justCreated, setJustCreated] = useState(null)
@@ -358,8 +367,96 @@ export default function NewVisitPage() {
     toast.success('Using the existing patient', { description: duplicate.full_name })
   }
 
+  const saveVisitAction = async () => {
+    if (!isOnline) {
+      resultDialog.error({
+        title: 'Connection unavailable',
+        message: 'Your visit details are still here. Reconnect and try saving again.',
+        retryLabel: 'Try again',
+        onRetry: saveVisitAction,
+      })
+      return
+    }
+    setSaving(true)
+    const progress = saveProgressRef.current
+    try {
+      if (!progress.patientId) {
+        progress.patientId = mode === 'new'
+          ? (await createPatient({ ...newPatient, address: '', notes: '' })).id
+          : patientId
+      }
+
+      if (mode === 'new' && !progress.patientInitialized) {
+        setJustCreated({ id: progress.patientId, full_name: newPatient.full_name.trim() })
+        selectPatient(progress.patientId)
+        progress.patientInitialized = true
+      }
+
+      if (!progress.visit) {
+        progress.visit = await createVisit({
+          patient_id: progress.patientId,
+          visit_date: new Date(visitDate).toISOString(),
+          notes,
+          prescription: hasPrescription(rx) ? rx : null,
+        })
+      }
+
+      if (!progress.order) {
+        progress.order = await createOrder({
+          patient_id: progress.patientId,
+          visit_id: progress.visit.id,
+          description: describeOrderItems(items.filter((item) => itemTotal(item) > 0)),
+          total_amount: orderTotal,
+          status: 'ORDERED',
+        })
+      }
+
+      if (paid > 0 && !progress.payment) {
+        await createPayment({
+          order_id: progress.order.id,
+          amount: paid,
+          payment_date: toDateKey(),
+          notes: describePayment(method, paymentType),
+        })
+        progress.payment = true
+      }
+
+      const order = progress.order
+      const patientName = selected?.full_name ?? newPatient.full_name ?? 'Patient'
+      saveProgressRef.current = {}
+      invalidateClinicQueries(
+        userId,
+        'patients-list',
+        'patient-roster',
+        'orders-list',
+        'dashboard-summary',
+        'today-activity',
+        'finance-payments',
+      )
+      resultDialog.success({
+        title: 'Visit and order saved',
+        message: `${patientName} · ${order.order_number}. ${balanceDue > 0 ? 'Deposit received.' : 'Paid in full.'}`,
+        primaryLabel: 'View order',
+        onPrimary: () => navigate(`/orders?search=${encodeURIComponent(order.order_number)}`),
+      })
+      navigate('/orders')
+    } catch (caught) {
+      resultDialog.error({
+        title: 'Could not save the visit',
+        message: caught instanceof AppError ? caught.message : 'Please check your connection and try again.',
+        details: caught?.cause?.message ?? caught?.message,
+        retryLabel: 'Try again',
+        onRetry: saveVisitAction,
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleSubmit = async (event) => {
     event.preventDefault()
+    if (!isOnline) return
+    saveProgressRef.current = {}
 
     const nextErrors = {}
 
@@ -379,7 +476,16 @@ export default function NewVisitPage() {
     ) {
       nextErrors.cp_number = 'Enter a valid contact number.'
     }
-    if (!visitDate) nextErrors.visitDate = 'Set the date and time of the visit.'
+    const visitTimestamp = visitDate ? new Date(visitDate) : null
+    if (!visitDate || !visitDate.includes('T') || Number.isNaN(visitTimestamp?.getTime())) {
+      nextErrors.visitDate = 'Set the date and time of the visit.'
+    } else {
+      const visitDateKey = toDateKey(visitTimestamp)
+      const todayKey = toDateKey()
+      if (visitDateKey > todayKey || (visitDateKey === todayKey && visitTimestamp > new Date())) {
+        nextErrors.visitDate = 'A visit cannot be dated in the future.'
+      }
+    }
 
     const hasItems = items.some((item) => itemTotal(item) > 0)
     if (!hasItems) nextErrors.order = 'Add at least one order item with a quantity and price.'
@@ -408,69 +514,14 @@ export default function NewVisitPage() {
     }
     setDuplicate(null)
 
-    setSaving(true)
-    let createdOrder = null
-    try {
-      const resolvedPatientId =
-        mode === 'new'
-          ? (
-              await createPatient({
-                ...newPatient,
-                address: '',
-                notes: '',
-              })
-            ).id
-          : patientId
-
-      if (mode === 'new') {
-        setJustCreated({ id: resolvedPatientId, full_name: newPatient.full_name.trim() })
-        selectPatient(resolvedPatientId)
-      }
-
-      const visit = await createVisit({
-        patient_id: resolvedPatientId,
-        visit_date: new Date(visitDate).toISOString(),
-        notes,
-        prescription: hasPrescription(rx) ? rx : null,
-      })
-
-      createdOrder = await createOrder({
-        patient_id: resolvedPatientId,
-        visit_id: visit.id,
-        description: describeOrderItems(items.filter((item) => itemTotal(item) > 0)),
-        total_amount: orderTotal,
-        status: 'ORDERED',
-      })
-
-      if (paid > 0) {
-        await createPayment({
-          order_id: createdOrder.id,
-          amount: paid,
-          payment_date: toDateKey(),
-          notes: describePayment(method, paymentType),
-        })
-      }
-
-      toast.success(
-        balanceDue > 0 ? 'Visit and order created — deposit received' : 'Visit and order created — paid in full',
-        {
-          description: `${selected?.full_name ?? newPatient.full_name ?? 'Patient'} · ${createdOrder.order_number}`,
-          action: {
-            label: 'View Order',
-            onClick: () =>
-              navigate(`/orders?search=${encodeURIComponent(createdOrder.order_number)}`),
-          },
-        },
-      )
-
-      navigate('/orders')
-    } catch (caught) {
-      toast.error('Could not save the visit', {
-        description: caught instanceof AppError ? caught.message : 'Please try again.',
-      })
-    } finally {
-      setSaving(false)
-    }
+    void confirm({
+      title: 'Create this visit?',
+      message: `Save the visit, order, and payment for ${patientContextLabel}?`,
+      confirmLabel: 'Create visit',
+      variant: 'default',
+      onConfirm: saveVisitAction,
+      errorMessage: 'Could not save the visit. Please try again.',
+    })
   }
 
   const patientContextLabel =
@@ -521,7 +572,7 @@ export default function NewVisitPage() {
             title="Patient"
             description="Pick someone from the roster or register a new record."
           >
-            <div className="inline-flex rounded-[var(--radius-control)] border border-champagne bg-ivory p-0.5">
+            <div className="inline-flex rounded-control border border-champagne bg-ivory p-0.5">
               {[
                 { value: 'existing', label: 'Existing patient' },
                 { value: 'new', label: 'New patient' },
@@ -559,7 +610,7 @@ export default function NewVisitPage() {
                 )}
 
                 {patientId && selected && !pickingPatient ? (
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-control)] border border-gold/40 bg-gold-light/50 px-4 py-3">
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-control border border-gold/40 bg-gold-light/50 px-4 py-3">
                     <div className="flex min-w-0 items-center gap-3">
                       <Avatar name={selected.full_name} />
                       <div className="min-w-0">
@@ -615,7 +666,7 @@ export default function NewVisitPage() {
                         }}
                         placeholder="Search by name or CP number"
                         aria-label="Search by name or CP number"
-                        className="h-11 w-full rounded-[var(--radius-control)] border border-champagne bg-ivory/50 pr-10 pl-10 text-sm text-espresso transition-all duration-200 placeholder:text-warmgray/55 focus:border-gold focus:bg-white focus:ring-2 focus:ring-gold/20 focus:outline-none"
+                        className="h-11 w-full rounded-control border border-champagne bg-ivory/50 pr-10 pl-10 text-sm text-espresso transition-all duration-200 placeholder:text-warmgray/55 focus:border-gold focus:bg-white focus:ring-2 focus:ring-gold/20 focus:outline-none"
                       />
                       {search.length > 0 && (
                         <button
@@ -632,14 +683,14 @@ export default function NewVisitPage() {
                       )}
                     </div>
 
-                    {patients.loading ? (
+                    {patients.showSkeleton && !patients.data ? (
                       <div className="mt-4 space-y-2">
                         {Array.from({ length: 4 }, (_, index) => (
                           <Skeleton key={index} className="h-12 w-full rounded-lg" />
                         ))}
                       </div>
                     ) : patients.data && patients.data.length > 0 ? (
-                      <ul className="mt-4 max-h-56 space-y-1 overflow-y-auto rounded-[var(--radius-control)] border border-champagne/80 p-1">
+                      <ul className="mt-4 max-h-56 space-y-1 overflow-y-auto rounded-control border border-champagne/80 p-1">
                         {patients.data.map((patient) => {
                           const active = patient.id === patientId
                           return (
@@ -737,7 +788,7 @@ export default function NewVisitPage() {
                 </div>
 
                 {duplicate && (
-                  <div className="mt-4 rounded-[var(--radius-control)] border border-warning/40 bg-warning/5 px-4 py-3.5">
+                  <div className="mt-4 rounded-control border border-warning/40 bg-warning/5 px-4 py-3.5">
                     <p className="text-[13px] font-medium text-espresso">
                       {duplicate.full_name} already uses {duplicate.cp_number}.
                     </p>
@@ -776,6 +827,7 @@ export default function NewVisitPage() {
                 onChange={setVisitDate}
                 error={errors.visitDate}
                 required
+                maxDate={toDateKey()}
                 hint="Use Now for the current time, or pick the visit date and time below."
               />
               <div className="sm:col-span-2">
@@ -825,7 +877,7 @@ export default function NewVisitPage() {
               {items.map((item, index) => (
                 <div
                   key={item.key}
-                  className="rounded-[var(--radius-control)] border border-champagne bg-ivory/30 p-3.5"
+                  className="rounded-control border border-champagne bg-ivory/30 p-3.5"
                 >
                   <div className="mb-3 flex items-center justify-between gap-2">
                     <p className="text-[12px] font-semibold tracking-wide text-warmgray uppercase">
@@ -959,7 +1011,7 @@ export default function NewVisitPage() {
           </section>
 
           <Card
-            className="overflow-hidden border-gold/25 bg-gradient-to-br from-ivory to-gold-light/20 p-5 today-animate"
+            className="overflow-hidden border-gold/25 bg-linear-to-br from-ivory to-gold-light/20 p-5 today-animate"
             style={{ animationDelay: '160ms' }}
           >
             <h2 className="text-[11px] font-semibold tracking-wider text-warmgray uppercase">
@@ -980,7 +1032,7 @@ export default function NewVisitPage() {
           </Card>
 
           <div className="flex flex-col gap-2.5 today-animate" style={{ animationDelay: '200ms' }}>
-            <Button type="submit" loading={saving} loadingText="Saving" className="w-full">
+            <Button type="submit" loading={saving} loadingText="Saving" disabled={!isOnline} className="w-full">
               <UserPlus className="size-4" aria-hidden="true" />
               Save visit
             </Button>

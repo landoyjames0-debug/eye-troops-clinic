@@ -1,15 +1,16 @@
 import { useState, useMemo } from 'react'
-import { toast } from 'sonner'
 import { Banknote } from 'lucide-react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input, Select, Textarea } from '@/components/ui/input'
 import { ErrorNote } from '@/components/ui/feedback'
+import { useConfirm } from '@/hooks/use-confirm'
+import { useResultDialog } from '@/hooks/use-result-dialog'
+import { useSupabaseHealth } from '@/hooks/use-supabase-health'
 import { createPayment } from '@/services/payments.service'
 import { toDateKey } from '@/utils/dates'
 import { formatPeso } from '@/utils/format'
 import { PAYMENT_METHODS } from '@/lib/constants'
-import { AppError } from '@/utils/errors'
 
 const blankForm = () => ({
   amount: '',
@@ -32,6 +33,9 @@ function formEquals(a, b) {
  * a correction is a new entry — so this modal only ever inserts.
  */
 export function AddPaymentDialog({ order, onClose, onSaved }) {
+  const confirm = useConfirm()
+  const resultDialog = useResultDialog()
+  const { isOnline } = useSupabaseHealth()
   const [initialForm] = useState(blankForm)
   const [form, setForm] = useState(blankForm)
   const [errors, setErrors] = useState({})
@@ -42,9 +46,47 @@ export function AddPaymentDialog({ order, onClose, onSaved }) {
     [form, initialForm]
   )
 
+  const recordPayment = async () => {
+    const amount = Number(form.amount)
+    setSaving(true)
+    try {
+      await createPayment({
+        order_id: order.id,
+        amount,
+        payment_date: form.payment_date,
+        notes: [form.method, form.notes].filter(Boolean).join(' · '),
+      })
+      resultDialog.success({
+        title: 'Payment recorded',
+        message: `${formatPeso(amount)} was recorded for ${order.order_number}.`,
+      })
+      onSaved()
+      onClose()
+    } catch (caught) {
+      resultDialog.error({
+        title: 'Could not save the payment',
+        message: caught?.message ?? 'Please check your connection and try again.',
+        details: caught?.cause?.message,
+        retryLabel: 'Try again',
+        onRetry: recordPayment,
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleClose = () => {
     if (saving) return
     if (hasUnsavedChanges) {
+      void confirm({
+        title: 'Discard unsaved payment?',
+        message: `Leave ${order.order_number} without recording this payment?`,
+        confirmLabel: 'Discard payment',
+        cancelLabel: 'Keep editing',
+        variant: 'default',
+        onConfirm: onClose,
+        errorMessage: 'Could not close the payment form. Please try again.',
+      })
       return
     }
     onClose()
@@ -52,6 +94,7 @@ export function AddPaymentDialog({ order, onClose, onSaved }) {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+    if (!isOnline) return
     if (!order) return
 
     const amount = Number(form.amount)
@@ -68,26 +111,14 @@ export function AddPaymentDialog({ order, onClose, onSaved }) {
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
-    setSaving(true)
-    try {
-      await createPayment({
-        order_id: order.id,
-        amount,
-        payment_date: form.payment_date,
-        notes: [form.method, form.notes].filter(Boolean).join(' · '),
-      })
-      toast.success('Payment recorded', {
-        description: `${formatPeso(amount)} on ${order.order_number}.`,
-      })
-      onSaved()
-      onClose()
-    } catch (caught) {
-      toast.error('Could not save the payment', {
-        description: caught instanceof AppError ? caught.message : 'Please try again.',
-      })
-    } finally {
-      setSaving(false)
-    }
+    void confirm({
+      title: 'Record payment?',
+      message: `Record ${formatPeso(amount)} for ${order.order_number}? This updates the outstanding balance.`,
+      confirmLabel: 'Record payment',
+      variant: 'default',
+      onConfirm: recordPayment,
+      errorMessage: 'Could not save the payment. Please try again.',
+    })
   }
 
   if (!order) return null
@@ -115,6 +146,7 @@ export function AddPaymentDialog({ order, onClose, onSaved }) {
               form="add-payment-form"
               loading={saving}
               loadingText="Recording"
+              disabled={!isOnline}
             >
               <Banknote className="size-4" aria-hidden="true" />
               Record Payment
@@ -126,7 +158,7 @@ export function AddPaymentDialog({ order, onClose, onSaved }) {
           {errors._general && <ErrorNote message={errors._general} />}
 
           {/* Order summary header */}
-          <dl className="space-y-2.5 rounded-[var(--radius-control)] border border-champagne bg-ivory px-4 py-3.5">
+          <dl className="space-y-2.5 rounded-control border border-champagne bg-ivory px-4 py-3.5">
             <div className="flex items-baseline justify-between gap-4">
               <dt className="text-[13px] text-warmgray">Order #</dt>
               <dd className="tabular text-[13px] font-medium text-espresso">{order.order_number}</dd>
@@ -164,7 +196,7 @@ export function AddPaymentDialog({ order, onClose, onSaved }) {
 
           {/* Live ledger so the cashier can see the effect before committing. */}
           {settled && (
-            <dl className="space-y-2.5 rounded-[var(--radius-control)] border border-champagne bg-ivory px-4 py-3.5">
+            <dl className="space-y-2.5 rounded-control border border-champagne bg-ivory px-4 py-3.5">
               <div className="flex items-baseline justify-between gap-4">
                 <dt className="text-[13px] text-warmgray">Remaining balance</dt>
                 <dd className="tabular text-[13px] text-espresso">

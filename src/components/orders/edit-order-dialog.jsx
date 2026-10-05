@@ -1,13 +1,14 @@
 import { useState, useMemo } from 'react'
-import { toast } from 'sonner'
 import { Save } from 'lucide-react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea } from '@/components/ui/input'
 import { ErrorNote } from '@/components/ui/feedback'
+import { useConfirm } from '@/hooks/use-confirm'
+import { useResultDialog } from '@/hooks/use-result-dialog'
+import { useSupabaseHealth } from '@/hooks/use-supabase-health'
 import { updateOrder } from '@/services/orders.service'
 import { formatPeso } from '@/utils/format'
-import { AppError } from '@/utils/errors'
 
 function blankForm(order) {
   return {
@@ -25,6 +26,9 @@ function formEquals(a, b) {
 
 /** Corrects an order's items and total. The balance is re-derived afterwards. */
 export function EditOrderDialog({ order, onClose, onSaved }) {
+  const confirm = useConfirm()
+  const resultDialog = useResultDialog()
+  const { isOnline } = useSupabaseHealth()
   const [initialForm] = useState(() => blankForm(order))
   const [form, setForm] = useState(() => blankForm(order))
   const [errors, setErrors] = useState({})
@@ -35,11 +39,44 @@ export function EditOrderDialog({ order, onClose, onSaved }) {
     [form, initialForm]
   )
 
+  const persist = async () => {
+    const amount = Number(form.total_amount)
+    setSaving(true)
+    try {
+      await updateOrder(order.id, { description: form.description, total_amount: amount })
+      resultDialog.success({
+        title: 'Order updated',
+        message: `Order ${order.order_number} was updated successfully.`,
+      })
+      onSaved()
+      onClose()
+    } catch (caught) {
+      resultDialog.error({
+        title: 'Could not update the order',
+        message: caught?.message ?? 'Please check your connection and try again.',
+        details: caught?.cause?.message,
+        retryLabel: 'Try again',
+        onRetry: persist,
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   if (!order) return null
 
   const handleClose = () => {
     if (saving) return
     if (hasUnsavedChanges) {
+      void confirm({
+        title: 'Discard unsaved changes?',
+        message: `Leave ${order.order_number} without saving your updates?`,
+        confirmLabel: 'Discard changes',
+        cancelLabel: 'Keep editing',
+        variant: 'default',
+        onConfirm: onClose,
+        errorMessage: 'Could not close the form. Please try again.',
+      })
       return
     }
     onClose()
@@ -47,6 +84,7 @@ export function EditOrderDialog({ order, onClose, onSaved }) {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+    if (!isOnline) return
 
     const amount = Number(form.total_amount)
     const nextErrors = {}
@@ -60,19 +98,14 @@ export function EditOrderDialog({ order, onClose, onSaved }) {
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
-    setSaving(true)
-    try {
-      await updateOrder(order.id, { description: form.description, total_amount: amount })
-      toast.success('Order updated', { description: order.order_number })
-      onSaved()
-      onClose()
-    } catch (caught) {
-      toast.error('Could not update the order', {
-        description: caught instanceof AppError ? caught.message : 'Please try again.',
-      })
-    } finally {
-      setSaving(false)
-    }
+    void confirm({
+      title: 'Save order changes?',
+      message: `Update ${order.order_number} with the revised total and notes?`,
+      confirmLabel: 'Save changes',
+      variant: 'default',
+      onConfirm: persist,
+      errorMessage: 'Could not update the order. Please try again.',
+    })
   }
 
   return (
@@ -94,6 +127,7 @@ export function EditOrderDialog({ order, onClose, onSaved }) {
               form="edit-order-form"
               loading={saving}
               loadingText="Saving"
+              disabled={!isOnline}
             >
               <Save className="size-4" aria-hidden="true" />
               Save Changes

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ClipboardPlus, NotebookPen } from 'lucide-react'
+import { CalendarDays, ClipboardPlus, Clock3, NotebookPen } from 'lucide-react'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/badge'
@@ -19,7 +19,7 @@ function Field({ label, children }) {
   return (
     <div className="min-w-0 border-b border-champagne/70 py-3">
       <dt className="text-[11px] font-semibold tracking-wider text-warmgray uppercase">{label}</dt>
-      <dd className="mt-1 text-sm break-words text-espresso">{children}</dd>
+      <dd className="mt-1 text-sm wrap-break-word text-espresso">{children}</dd>
     </div>
   )
 }
@@ -49,7 +49,7 @@ function TimelineItem({ date, meta, status, children, action }) {
   return (
     <li className="relative border-l border-champagne pb-7 pl-6 last:pb-0">
       <span
-        className="absolute -left-[5px] top-1.5 size-2.5 rounded-full border-2 border-surface bg-gold"
+        className="absolute -left-1.25 top-1.5 size-2.5 rounded-full border-2 border-surface bg-gold"
         aria-hidden="true"
       />
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
@@ -78,6 +78,7 @@ export function PatientDrawer({ patientId, cpLabel, onClose }) {
   const patient = detail.data?.patient
   const orders = detail.data?.orders ?? []
   const visits = detail.data?.visits ?? []
+  const nextFollowUp = detail.data?.nextFollowUp ?? null
   const balance = detail.data?.balance ?? 0
 
   return (
@@ -106,7 +107,7 @@ export function PatientDrawer({ patientId, cpLabel, onClose }) {
         ) : detail.data ? (
           <div className="space-y-8">
             {/* Balance sits at the top because it is the number staff look for. */}
-            <div className="rounded-[var(--radius-control)] border border-champagne bg-ivory px-4 py-3.5">
+            <div className="rounded-control border border-champagne bg-ivory px-4 py-3.5">
               <p className="text-[11px] font-semibold tracking-wider text-warmgray uppercase">
                 Outstanding balance
               </p>
@@ -130,6 +131,33 @@ export function PatientDrawer({ patientId, cpLabel, onClose }) {
                 <Field label="Date added">{formatDateShort(patient.created_at)}</Field>
               </dl>
             </section>
+
+            {nextFollowUp && (
+              <section className="rounded-control border border-gold/60 bg-gold-light/30 px-4 py-3.5">
+                <SectionLabel>Next follow-up</SectionLabel>
+                <div className="mt-2 flex items-start gap-3">
+                  <div className="mt-0.5 rounded-lg bg-surface p-2 text-gold-dark">
+                    <CalendarDays className="size-4" strokeWidth={1.8} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-display text-lg font-semibold text-espresso">
+                      {formatDate(nextFollowUp.appointment_date)}
+                    </p>
+                    <p className="mt-1 flex items-center gap-1.5 text-[12px] text-warmgray">
+                      <Clock3 className="size-3.5" strokeWidth={1.8} />
+                      {formatTime(
+                        new Date(`${nextFollowUp.appointment_date}T${nextFollowUp.appointment_time}`),
+                      )}{' '}
+                      • {nextFollowUp.appointment_type}
+                    </p>
+                    <p className="mt-1 text-[12px] text-warmgray">{nextFollowUp.status}</p>
+                    {nextFollowUp.notes && (
+                      <p className="mt-2 text-[13px] leading-relaxed text-espresso">{nextFollowUp.notes}</p>
+                    )}
+                  </div>
+                </div>
+              </section>
+            )}
 
             <section>
               <SectionLabel>Visit &amp; order history</SectionLabel>

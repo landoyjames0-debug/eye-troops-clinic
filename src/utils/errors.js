@@ -25,6 +25,13 @@ const MESSAGES = {
   saveExpense: 'Unable to record the expense. Please check the information and try again.',
   updateExpense: 'Unable to update the expense. Please check the information and try again.',
   deleteExpense: 'Unable to delete the expense right now.',
+  loadAppointments: 'Unable to load appointments right now.',
+  loadFollowups: 'Unable to load follow-ups right now.',
+  saveAppointment: 'Unable to schedule the appointment. Please check the details and try again.',
+  saveFollowup: 'Unable to add the follow-up. Please check the details and try again.',
+  updateFollowup: 'Unable to update the follow-up right now.',
+  updateAppointment: 'Unable to update the appointment. Please check the details and try again.',
+  cancelAppointment: 'Unable to cancel the appointment right now.',
   loadPatients: 'Unable to load patients right now.',
   loadOrders: 'Unable to load orders right now.',
   loadPayments: 'Unable to load payment history right now.',
@@ -34,6 +41,10 @@ const MESSAGES = {
   load: 'Something went wrong while loading. Please try again.',
   updateStatus: 'Unable to update the order status right now.',
   notFound: 'That record could not be found.',
+  network: 'We’re having trouble connecting. Your data is safe. Please try again shortly.',
+  timeout: 'The request took too long. Your data is safe. Please try again shortly.',
+  server: 'The clinic data service is temporarily unavailable. Your data is safe. Please try again shortly.',
+  signup: 'Unable to submit your sign-up request. Please try again.',
 }
 
 export class AppError extends Error {
@@ -43,11 +54,47 @@ export class AppError extends Error {
   }
 }
 
-export function friendlyError(key) {
+export function friendlyError(key, cause) {
   if (import.meta.env.DEV) {
-    console.warn(`[EyeTroOps] friendlyError fallback used for "${key}"`)
+    // Log the full Supabase error so developers can see the real DB error
+    // while clinic staff see only the friendly message.
+    const detail = cause ?? null
+    if (detail) {
+      console.warn(
+        `[EyeTroOps] friendlyError("${key}") — raw error below:`,
+        {
+          code:    detail?.code    ?? detail?.error_code ?? '—',
+          message: detail?.message ?? '—',
+          details: detail?.details ?? '—',
+          hint:    detail?.hint    ?? '—',
+        },
+        detail,
+      )
+    } else {
+      console.warn(`[EyeTroOps] friendlyError fallback used for "${key}" (no cause provided)`)
+    }
   }
-  return new AppError(MESSAGES[key])
+  return new AppError(MESSAGES[key] ?? MESSAGES.load, { cause })
+}
+
+export function classifyConnectivityFailure(caught) {
+  if (caught?.kind === 'network' || caught?.kind === 'timeout' || caught?.kind === 'server') {
+    return caught.kind
+  }
+
+  const status = Number(caught?.status ?? caught?.statusCode ?? caught?.code)
+  if (status >= 500 && status <= 599) return 'server'
+
+  const message = String(caught?.message ?? '')
+  if (/timed out|timeout/i.test(message)) return 'timeout'
+  if (
+    caught?.name === 'NetworkError' ||
+    /failed to fetch|fetch failed|network request failed|networkerror/i.test(message)
+  ) {
+    return 'network'
+  }
+
+  return null
 }
 
 /**
@@ -59,5 +106,10 @@ export function toAppError(caught, key) {
     console.error(`[EyeTroOps] ${key}:`, caught)
   }
   if (caught instanceof AppError) return caught
-  return friendlyError(key)
+  const connectivityFailure = classifyConnectivityFailure(caught)
+  if (!connectivityFailure) return friendlyError(key, caught)
+
+  return new AppError(MESSAGES[connectivityFailure], {
+    cause: caught,
+  })
 }

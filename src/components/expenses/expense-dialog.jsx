@@ -1,13 +1,16 @@
 import { useState, useMemo } from 'react'
-import { toast } from 'sonner'
 import { Receipt } from 'lucide-react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input, Select, Textarea } from '@/components/ui/input'
 import { ErrorNote } from '@/components/ui/feedback'
+import { useConfirm } from '@/hooks/use-confirm'
+import { useResultDialog } from '@/hooks/use-result-dialog'
+import { useSupabaseHealth } from '@/hooks/use-supabase-health'
 import { createExpense, updateExpense } from '@/services/expenses.service'
 import { EXPENSE_CATEGORIES } from '@/lib/constants'
 import { AppError } from '@/utils/errors'
+import { formatPeso } from '@/utils/format'
 
 function blankForm(expense, defaultDate) {
   return {
@@ -34,6 +37,9 @@ function formEquals(a, b) {
  */
 export function ExpenseDialog({ open, expense = null, defaultDate, onClose, onSaved }) {
   const isEdit = Boolean(expense)
+  const confirm = useConfirm()
+  const resultDialog = useResultDialog()
+  const { isOnline } = useSupabaseHealth()
   const [initialForm] = useState(() => blankForm(expense, defaultDate))
   const [form, setForm] = useState(() => blankForm(expense, defaultDate))
   const [errors, setErrors] = useState({})
@@ -44,9 +50,55 @@ export function ExpenseDialog({ open, expense = null, defaultDate, onClose, onSa
     [form, initialForm]
   )
 
+  const persist = async () => {
+    setSaving(true)
+    try {
+      const payload = {
+        expense_date: form.expense_date,
+        category: form.category,
+        amount: Number(form.amount),
+        description: form.description,
+      }
+      if (isEdit) {
+        await updateExpense(expense.id, payload)
+        resultDialog.success({
+          title: 'Expense updated',
+          message: `${form.category} expense was updated successfully.`,
+        })
+      } else {
+        await createExpense(payload)
+        resultDialog.success({
+          title: 'Expense recorded',
+          message: `${formatPeso(payload.amount)} ${form.category.toLowerCase()} expense was recorded successfully.`,
+        })
+      }
+      onSaved()
+      onClose()
+    } catch (caught) {
+      resultDialog.error({
+        title: 'Could not save the expense',
+        message: caught instanceof AppError ? caught.message : 'Please check your connection and try again.',
+        details: caught?.cause?.message ?? caught?.message,
+        retryLabel: 'Try again',
+        onRetry: persist,
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleClose = () => {
     if (saving) return
     if (hasUnsavedChanges) {
+      void confirm({
+        title: 'Discard unsaved changes?',
+        message: `Leave this ${isEdit ? 'expense edit' : 'new expense'} without saving your changes?`,
+        confirmLabel: 'Discard changes',
+        cancelLabel: 'Keep editing',
+        variant: 'default',
+        onConfirm: onClose,
+        errorMessage: 'Could not close the form. Please try again.',
+      })
       return
     }
     onClose()
@@ -54,6 +106,7 @@ export function ExpenseDialog({ open, expense = null, defaultDate, onClose, onSa
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+    if (!isOnline) return
 
     const amount = Number(form.amount)
     const nextErrors = {}
@@ -66,30 +119,16 @@ export function ExpenseDialog({ open, expense = null, defaultDate, onClose, onSa
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
-    setSaving(true)
-    try {
-      const payload = {
-        expense_date: form.expense_date,
-        category: form.category,
-        amount,
-        description: form.description,
-      }
-      if (isEdit) {
-        await updateExpense(expense.id, payload)
-        toast.success('Expense updated')
-      } else {
-        await createExpense(payload)
-        toast.success('Expense recorded')
-      }
-      onSaved()
-      onClose()
-    } catch (caught) {
-      toast.error('Could not save the expense', {
-        description: caught instanceof AppError ? caught.message : 'Please try again.',
-      })
-    } finally {
-      setSaving(false)
-    }
+    void confirm({
+      title: isEdit ? 'Save expense changes?' : 'Record this expense?',
+      message: isEdit
+        ? `Update ${expense?.category ?? 'this expense'} for ${form.expense_date}?`
+        : `Save this ${form.category} expense of ${formatPeso(amount)}?`,
+      confirmLabel: isEdit ? 'Save changes' : 'Add expense',
+      variant: 'default',
+      onConfirm: persist,
+      errorMessage: 'Could not save the expense. Please try again.',
+    })
   }
 
   if (!open) return null
@@ -117,6 +156,7 @@ export function ExpenseDialog({ open, expense = null, defaultDate, onClose, onSa
               form="expense-form"
               loading={saving}
               loadingText="Saving"
+              disabled={!isOnline}
             >
               <Receipt className="size-4" aria-hidden="true" />
               {isEdit ? 'Save Changes' : 'Add Expense'}

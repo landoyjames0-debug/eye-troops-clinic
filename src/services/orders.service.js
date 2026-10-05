@@ -50,27 +50,37 @@ export async function listOrders(search = '', status = 'ALL', paymentFilter = 'A
   }
 
   try {
-    let query = supabase.from('orders').select('*')
+    let query = supabase
+      .from('orders')
+      .select('id, order_number, patient_id, visit_id, description, total_amount, status, order_date, created_at, updated_at')
     if (status !== 'ALL') query = query.eq('status', status)
     if (search.trim()) query = query.ilike('order_number', `%${search.trim()}%`)
 
     const [orders, payments, patients] = await Promise.all([
       query.order('order_date', { ascending: false }),
-      supabase.from('payments').select('*'),
-      supabase.from('patients').select('*'),
+      supabase.from('payments').select('id, order_id, amount, status'),
+      supabase.from('patients').select('id, full_name, cp_number'),
     ])
 
     const term = search.trim().toLowerCase()
     const patientById = new Map((patients.data ?? []).map((p) => [p.id, p]))
 
     return unwrap(orders)
+      .map((order) => {
+        const patient = patientById.get(order.patient_id) ?? null
+        return {
+          ...order,
+          patient,
+          patient_name: patient?.full_name ?? '—',
+          patient_phone: patient?.cp_number ?? null,
+        }
+      })
       .filter((order) => {
         if (!term) return true
-        const patient = patientById.get(order.patient_id)
         return (
           order.order_number.toLowerCase().includes(term) ||
-          (patient?.full_name.toLowerCase().includes(term) ?? false) ||
-          (patient?.cp_number ?? '').toLowerCase().includes(term)
+          order.patient_name.toLowerCase().includes(term) ||
+          (order.patient_phone ?? '').toLowerCase().includes(term)
         )
       })
       .map((order) => withTotals(order, payments.data ?? []))
@@ -82,14 +92,23 @@ export async function listOrders(search = '', status = 'ALL', paymentFilter = 'A
 
 export async function getOrderDetail(orderId) {
   try {
-    const orderResult = await supabase.from('orders').select('*').eq('id', orderId).maybeSingle()
+    const orderResult = await supabase
+      .from('orders')
+      .select('id, order_number, patient_id, visit_id, description, total_amount, status, order_date, created_at, updated_at')
+      .eq('id', orderId)
+      .maybeSingle()
     if (orderResult.error) throw orderResult.error
     if (!orderResult.data) throw toAppError(new Error('not found'), 'notFound')
 
-    const payments = unwrap(await supabase.from('payments').select('*').eq('order_id', orderId))
+    const payments = unwrap(
+      await supabase
+        .from('payments')
+        .select('id, order_id, amount, payment_date, notes, status, created_at')
+        .eq('order_id', orderId),
+    )
     const patientResult = await supabase
       .from('patients')
-      .select('*')
+      .select('id, full_name, cp_number, address, notes')
       .eq('id', orderResult.data.patient_id)
       .maybeSingle()
 
@@ -110,7 +129,7 @@ export async function getOrderStatusHistory(orderId) {
   try {
     const { data, error } = await supabase
       .from('order_status_history')
-      .select('*')
+      .select('id, order_id, status, changed_at, changed_by')
       .eq('order_id', orderId)
       .order('changed_at', { ascending: true })
     if (error) throw error

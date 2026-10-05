@@ -17,7 +17,7 @@ export function SheetContent({ title, description, children, footer, className }
       <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-espresso/40 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
       <DialogPrimitive.Content
         className={cn(
-          'fixed inset-y-0 right-0 z-50 flex w-full max-w-[520px] flex-col',
+          'fixed inset-y-0 right-0 z-50 flex w-full max-w-130 flex-col',
           'border-l border-champagne bg-surface shadow-pop',
           'data-[state=open]:animate-in data-[state=open]:slide-in-from-right',
           className,
@@ -35,7 +35,7 @@ export function SheetContent({ title, description, children, footer, className }
             )}
           </div>
           <DialogPrimitive.Close
-            className="-mt-1 -mr-1.5 rounded-[var(--radius-control)] p-2 text-warmgray transition-colors hover:bg-ivory hover:text-espresso"
+            className="-mt-1 -mr-1.5 rounded-control p-2 text-warmgray transition-colors hover:bg-ivory hover:text-espresso"
             aria-label="Close"
           >
             <X className="size-4" aria-hidden="true" />

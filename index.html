@@ -9,6 +9,24 @@
       name="description"
       content="Eye TroOps Optical Clinic — patients, visits, prescriptions, orders and balances."
     />
+    <script>
+      try {
+        const savedTheme = localStorage.getItem('theme')
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        const theme = savedTheme === 'light' || savedTheme === 'dark'
+          ? savedTheme
+          : prefersDark ? 'dark' : 'light'
+        document.documentElement.classList.toggle('dark', theme === 'dark')
+        document.documentElement.dataset.theme = theme
+        document.documentElement.style.colorScheme = theme
+        document.querySelector('meta[name="theme-color"]')?.setAttribute(
+          'content',
+          theme === 'dark' ? '#191714' : '#FBF5EC',
+        )
+      } catch {
+        document.documentElement.classList.remove('dark')
+      }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

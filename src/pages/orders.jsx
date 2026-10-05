@@ -1,34 +1,34 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { toast } from 'sonner'
 import {
   AlertCircle,
   Banknote,
   Ban,
   Check,
-  Loader2,
   Package,
   PackageSearch,
   Pencil,
   Plus,
   Printer,
-  Search,
   Wallet,
-  X,
 } from 'lucide-react'
 import { PageHeader, Avatar } from '@/components/layout/page-header'
 import { Card, Table, TBody, TD, TH, THead, TR } from '@/components/ui/card'
 import { Badge, StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Pagination } from '@/components/ui/pagination'
-import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState, ErrorNote, Skeleton, SkeletonRows } from '@/components/ui/feedback'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
-import { ChoiceGroup } from '@/components/ui/choice-group'
+import { Select } from '@/components/Select'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { AddPaymentDialog } from '@/components/orders/add-payment-dialog'
 import { EditOrderDialog } from '@/components/orders/edit-order-dialog'
 import { PrescriptionTable } from '@/components/visits/prescription-table'
+import { useAuth } from '@/hooks/use-auth'
 import { useAsync } from '@/hooks/use-async'
+import { useDebouncedSearchParam } from '@/hooks/use-debounced-search-param'
+import { useResultDialog } from '@/hooks/use-result-dialog'
+import { useSupabaseHealth } from '@/hooks/use-supabase-health'
 import {
   cancelOrder,
   getOrderStatusHistory,
@@ -37,7 +37,7 @@ import {
   updateOrderStatus,
 } from '@/services/orders.service'
 import { voidPayment } from '@/services/payments.service'
-import { listPatients } from '@/services/patients.service'
+import { invalidateClinicQueries } from '@/lib/query-client'
 import { getPrescriptionForVisit } from '@/services/visits.service'
 import {
   ORDER_STATUSES,
@@ -51,13 +51,13 @@ import { formatDate, formatTime, formatPeso } from '@/utils/format'
 import { statusLabel } from '@/utils/strings'
 import { AppError } from '@/utils/errors'
 import { cn } from '@/lib/utils'
-
-const SEARCH_DEBOUNCE_MS = 300
+import { SearchInput } from '@/components/ui/search-input'
 
 const PAYMENT_FILTER_OPTIONS = [
   { value: 'ALL', label: 'All' },
   { value: 'OUTSTANDING', label: 'Outstanding' },
   { value: 'PAID', label: 'Paid' },
+  { value: 'OVERDUE', label: 'Overdue' },
 ]
 
 const STATUS_FILTER_OPTIONS = [
@@ -68,7 +68,126 @@ const STATUS_FILTER_OPTIONS = [
   })),
 ]
 
-function MiniStat({ icon: Icon, label, value, tone = 'neutral' }) {
+const SORT_OPTIONS = [
+  { value: 'newest', label: 'Newest' },
+  { value: 'oldest', label: 'Oldest' },
+  { value: 'highest-balance', label: 'Highest balance' },
+  { value: 'oldest-unpaid', label: 'Oldest unpaid' },
+]
+
+const OVERDUE_AFTER_DAYS = 30
+const MODULE_NOW = Date.now()
+
+const STATUS_TONES = {
+  ORDERED: {
+    slug: 'ordered',
+    label: 'Ordered',
+    chip: 'border-[var(--color-status-ordered)] bg-[var(--color-status-ordered-bg)] text-[var(--color-status-ordered)]',
+  },
+  IN_LAB: {
+    slug: 'in-lab',
+    label: 'In Lab',
+    chip: 'border-[var(--color-status-in-lab)] bg-[var(--color-status-in-lab-bg)] text-[var(--color-status-in-lab)]',
+  },
+  READY_FOR_PICKUP: {
+    slug: 'ready',
+    label: 'Ready',
+    chip: 'border-[var(--color-status-ready)] bg-[var(--color-status-ready-bg)] text-[var(--color-status-ready)]',
+  },
+  CLAIMED: {
+    slug: 'claimed',
+    label: 'Claimed',
+    chip: 'border-[var(--color-status-claimed)] bg-[var(--color-status-claimed-bg)] text-[var(--color-status-claimed)]',
+  },
+  CANCELLED: {
+    slug: 'cancelled',
+    label: 'Cancelled',
+    chip: 'border-[var(--color-status-cancelled)] bg-[var(--color-status-cancelled-bg)] text-[var(--color-status-cancelled)]',
+  },
+}
+
+function paymentMatches(order, filter) {
+  if (filter === 'OUTSTANDING') {
+    return order.balance > 0 && !['CANCELLED', 'CLAIMED'].includes(order.status)
+  }
+  if (filter === 'PAID') return order.balance <= 0
+  if (filter === 'OVERDUE') {
+    const age = MODULE_NOW - Date.parse(`${order.order_date}T00:00:00`)
+    return order.balance > 0 && order.status !== 'CANCELLED' && age >= OVERDUE_AFTER_DAYS * 86_400_000
+  }
+  return true
+}
+
+function dateMatches(order, from, to) {
+  if (from && order.order_date < from) return false
+  if (to && order.order_date > to) return false
+  return true
+}
+
+function sortOrders(rows, sort) {
+  return [...rows].sort((left, right) => {
+    const dateOrder = Date.parse(right.order_date) - Date.parse(left.order_date)
+    if (sort === 'oldest') return -dateOrder
+    if (sort === 'highest-balance') return right.balance - left.balance || dateOrder
+    if (sort === 'oldest-unpaid') {
+      const leftUnpaid = left.balance > 0 && left.status !== 'CANCELLED'
+      const rightUnpaid = right.balance > 0 && right.status !== 'CANCELLED'
+      if (leftUnpaid !== rightUnpaid) return leftUnpaid ? -1 : 1
+      return Date.parse(left.order_date) - Date.parse(right.order_date)
+    }
+    return dateOrder
+  })
+}
+
+function OrderStatusBadge({ status }) {
+  const tone = STATUS_TONES[status] ?? STATUS_TONES.ORDERED
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap', tone.chip)}>
+      <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
+      {tone.label}
+    </span>
+  )
+}
+
+function FilterChips({ label, options, selected, onChange, getCount, getTone, busy = false }) {
+  return (
+    <div className={cn('min-w-0 transition-opacity duration-150', busy && 'opacity-60')}>
+      <span className="sr-only">{label}</span>
+      <div
+        role="group"
+        aria-label={`${label} filters`}
+        className="flex min-w-0 flex-nowrap gap-1.5 overflow-x-auto pb-1 scrollbar-none [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {options.map((option) => {
+          const active = selected === option.value
+          const tone = getTone?.(option.value)
+          return (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onChange(option.value)}
+              className={cn(
+                'inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1 text-[12px] font-semibold transition-colors',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
+                tone
+                  ? tone.chip
+                  : active
+                    ? 'border-gold bg-gold-light text-gold-dark'
+                    : 'border-champagne bg-surface text-warmgray hover:border-gold/55 hover:text-espresso',
+                active && 'ring-1 ring-current/20',
+              )}
+            >
+              {option.label} <span className="tabular opacity-80">({getCount(option.value)})</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function MiniStat({ icon: Icon, label, value, tone = 'neutral', active = false, onClick }) {
   const tones = {
     neutral: {
       iconBg: 'bg-gradient-to-br from-gold-light to-champagne',
@@ -94,7 +213,16 @@ function MiniStat({ icon: Icon, label, value, tone = 'neutral' }) {
   const s = tones[tone] || tones.neutral
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-champagne/60 bg-surface px-4 py-3 shadow-card transition-all duration-200 hover:shadow-raised">
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        'flex w-full items-center gap-3 rounded-card border bg-surface px-4 py-3 text-left shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-raised',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
+        active ? 'border-gold bg-gold-light/35 shadow-raised' : 'border-champagne/60 hover:border-gold/55',
+      )}
+    >
       <span
         className={cn(
           'flex size-10 shrink-0 items-center justify-center rounded-xl',
@@ -110,7 +238,7 @@ function MiniStat({ icon: Icon, label, value, tone = 'neutral' }) {
         </p>
         <p className="text-[11px] text-warmgray">{label}</p>
       </div>
-    </div>
+    </button>
   )
 }
 
@@ -188,13 +316,22 @@ function DrawerLabel({ children }) {
 }
 
 export default function OrdersPage() {
+  const { userId } = useAuth()
+  const resultDialog = useResultDialog()
+  const { isOnline } = useSupabaseHealth()
   const [searchParams, setSearchParams] = useSearchParams()
-  const initialSearch = searchParams.get('search') ?? ''
-
-  const [search, setSearch] = useState(initialSearch)
-  const [deferredSearch, setDeferredSearch] = useState(initialSearch)
-  const [status, setStatus] = useState('ALL')
-  const [paymentFilter, setPaymentFilter] = useState('ALL')
+  const { search, setSearch, deferredSearch, searchPending } = useDebouncedSearchParam()
+  const requestedStatus = searchParams.get('status') ?? 'ALL'
+  const rawStatus = requestedStatus.toLowerCase() === 'ready' ? 'READY_FOR_PICKUP' : requestedStatus
+  const status = STATUS_FILTER_OPTIONS.some((option) => option.value === rawStatus) ? rawStatus : 'ALL'
+  const rawPayment = (searchParams.get('payment') ?? 'ALL').toUpperCase()
+  const paymentFilter = PAYMENT_FILTER_OPTIONS.some((option) => option.value === rawPayment)
+  ? rawPayment
+  : 'ALL'
+  const dateFrom = searchParams.get('from') ?? ''
+  const dateTo = searchParams.get('to') ?? ''
+  const rawSort = searchParams.get('sort') ?? 'newest'
+  const sort = SORT_OPTIONS.some((option) => option.value === rawSort) ? rawSort : 'newest'
   const [selectedId, setSelectedId] = useState(null)
   const [payFor, setPayFor] = useState(null)
   const [savingStatus, setSavingStatus] = useState(false)
@@ -204,159 +341,210 @@ export default function OrdersPage() {
   const [voiding, setVoiding] = useState(null)
   const [voidingBusy, setVoidingBusy] = useState(false)
   const [page, setPage] = useState(1)
-  const [patientsById, setPatientsById] = useState(new Map())
 
   const orders = useAsync(
-    async () => {
-      const rows = await listOrders(deferredSearch, status, paymentFilter)
-      const patients = await listPatients()
-      const byId = new Map(patients.map((patient) => [patient.id, patient]))
-      // Kept in state so the receipt can print the patient's mobile, not just
-      // the name the table already shows.
-      setPatientsById(byId)
-      return rows.map((order) => ({
-        ...order,
-        patient_name: byId.get(order.patient_id)?.full_name ?? '—',
-      }))
-    },
-    [deferredSearch, status, paymentFilter],
+    () => listOrders(deferredSearch, 'ALL', 'ALL'),
+    [deferredSearch],
     'loadOrders',
+    { key: 'orders-list' },
   )
 
+  const requestedOrderId = searchParams.get('order')
+  useEffect(() => {
+    if (requestedOrderId) setSelectedId(requestedOrderId)
+  }, [requestedOrderId])
+
   const selected = orders.data?.find((row) => row.id === selectedId) ?? null
-  const total = orders.data?.length ?? 0
+  const dateOrders = useMemo(
+    () => (orders.data ?? []).filter((order) => dateMatches(order, dateFrom, dateTo)),
+    [dateFrom, dateTo, orders.data],
+  )
+
+  const statusCounts = useMemo(
+    () => Object.fromEntries(
+      STATUS_FILTER_OPTIONS.map((option) => [
+        option.value,
+        dateOrders.filter((order) =>
+          (option.value === 'ALL' || order.status === option.value) &&
+          paymentMatches(order, paymentFilter),
+        ).length,
+      ]),
+    ),
+    [dateOrders, paymentFilter],
+  )
+
+  const paymentCounts = useMemo(
+    () => Object.fromEntries(
+      PAYMENT_FILTER_OPTIONS.map((option) => [
+        option.value,
+        dateOrders.filter((order) =>
+          (status === 'ALL' || order.status === status) &&
+          paymentMatches(order, option.value),
+        ).length,
+      ]),
+    ),
+    [dateOrders, status],
+  )
+
+  const filteredOrders = useMemo(
+    () => sortOrders(
+      dateOrders.filter((order) =>
+        (status === 'ALL' || order.status === status) && paymentMatches(order, paymentFilter),
+      ),
+      sort,
+    ),
+    [dateOrders, paymentFilter, sort, status],
+  )
+
+  const total = filteredOrders.length
   const pageCount = Math.max(Math.ceil(total / TABLE_PAGE_SIZE), 1)
   const currentPage = Math.min(page, pageCount)
-  const pageRows = orders.data?.slice(
+  const pageRows = filteredOrders.slice(
     (currentPage - 1) * TABLE_PAGE_SIZE,
     currentPage * TABLE_PAGE_SIZE,
   )
 
   const outstandingCount = useMemo(
-    () =>
-      (orders.data ?? []).filter(
-        (order) => order.balance > 0 && order.status !== 'CANCELLED',
-      ).length,
-    [orders.data],
+    () => filteredOrders.filter(
+      (order) => order.balance > 0 && order.status !== 'CANCELLED',
+    ).length,
+    [filteredOrders],
   )
 
   const totalOutstanding = useMemo(
-    () =>
-      (orders.data ?? []).reduce(
-        (sum, order) =>
-          order.status === 'CANCELLED' ? sum : sum + Math.max(order.balance, 0),
-        0,
-      ),
-    [orders.data],
+    () => filteredOrders.reduce(
+      (sum, order) =>
+        ['CANCELLED', 'CLAIMED'].includes(order.status) ? sum : sum + Math.max(order.balance, 0),
+      0,
+    ),
+    [filteredOrders],
   )
 
   const filtersActive =
-    Boolean(deferredSearch.trim()) || status !== 'ALL' || paymentFilter !== 'ALL'
+    Boolean(search.trim()) || status !== 'ALL' || paymentFilter !== 'ALL' ||
+    Boolean(dateFrom || dateTo) || sort !== 'newest'
 
-  const searchPending = search.trim() !== deferredSearch.trim()
-  const searchBusy =
-    searchPending || (orders.loading && Boolean(deferredSearch.trim()))
-
-  useEffect(() => {
-    const id = window.setTimeout(() => setDeferredSearch(search), SEARCH_DEBOUNCE_MS)
-    return () => window.clearTimeout(id)
-  }, [search])
+  const searchBusy = searchPending || orders.loading
 
   useEffect(() => {
     setPage(1)
-  }, [deferredSearch, status, paymentFilter])
+  }, [deferredSearch, status, paymentFilter, dateFrom, dateTo, sort])
 
-  useEffect(() => {
-    const trimmed = deferredSearch.trim()
-    const inUrl = (searchParams.get('search') ?? '').trim()
-    if (trimmed === inUrl) return
+  const updateQuery = (key, value, defaultValue) => {
     const next = new URLSearchParams(searchParams)
-    if (trimmed) next.set('search', trimmed)
-    else next.delete('search')
+    if (!value || value === defaultValue) next.delete(key)
+    else next.set(key, value)
     setSearchParams(next, { replace: true })
-  }, [deferredSearch, searchParams, setSearchParams])
-
-  const applySearchNow = () => {
-    setDeferredSearch(search)
   }
 
   const clearSearch = () => {
     setSearch('')
-    setDeferredSearch('')
   }
 
   const clearFilters = () => {
     clearSearch()
-    setStatus('ALL')
-    setPaymentFilter('ALL')
+    const next = new URLSearchParams(searchParams)
+    for (const key of ['search', 'status', 'payment', 'from', 'to', 'sort']) next.delete(key)
+    setSearchParams(next, { replace: true })
   }
 
-  const handleStatusChange = async (order, next) => {
+  const updateStatusAction = async (order, next) => {
     setSavingStatus(true)
     try {
       await updateOrderStatus(order.id, next)
-      toast.success('Status updated', { description: `${order.order_number} → ${statusLabel(next)}` })
+      resultDialog.success({
+        title: 'Order status updated',
+        message: `${order.order_number} is now ${statusLabel(next)}.`,
+      })
+      invalidateClinicQueries(userId, 'loadOrders', 'dashboard-summary', 'today-activity', 'today-pickups')
       orders.reload()
     } catch (caught) {
-      toast.error('Could not update the status', {
-        description: caught instanceof AppError ? caught.message : 'Please try again.',
+      resultDialog.error({
+        title: 'Could not update the order status',
+        message: caught instanceof AppError ? caught.message : 'Please check your connection and try again.',
+        details: caught?.cause?.message ?? caught?.message,
+        retryLabel: 'Try again',
+        onRetry: () => updateStatusAction(order, next),
       })
     } finally {
       setSavingStatus(false)
     }
   }
 
-  const handleCancel = async () => {
+  const handleStatusChange = updateStatusAction
+
+  const cancelOrderAction = async () => {
     if (!selected) return
     setCancelling(true)
     try {
       await cancelOrder(selected.id)
-      toast.success('Order cancelled', {
-        description: `${selected.order_number} was cancelled. Its payments stay on record.`,
+      resultDialog.success({
+        title: 'Order cancelled',
+        message: `${selected.order_number} was cancelled. Its payments remain on record.`,
       })
       setConfirmCancel(false)
+      invalidateClinicQueries(userId, 'loadOrders', 'dashboard-summary', 'today-activity', 'today-pickups')
       orders.reload()
     } catch (caught) {
-      toast.error('Could not cancel the order', {
-        description: caught instanceof AppError ? caught.message : 'Please try again.',
+      resultDialog.error({
+        title: 'Could not cancel the order',
+        message: caught instanceof AppError ? caught.message : 'Please check your connection and try again.',
+        details: caught?.cause?.message ?? caught?.message,
+        retryLabel: 'Try again',
+        onRetry: cancelOrderAction,
       })
     } finally {
       setCancelling(false)
     }
   }
 
-  const handleVoid = async () => {
+  const handleCancel = cancelOrderAction
+
+  const voidPaymentAction = async () => {
     if (!voiding) return
     setVoidingBusy(true)
     try {
       await voidPayment(voiding.id)
-      toast.success('Payment voided', {
-        description: `${voiding.order_number} — the amount no longer counts as paid.`,
+      resultDialog.success({
+        title: 'Payment voided',
+        message: `The payment for ${voiding.order_number} no longer counts as paid.`,
       })
       setVoiding(null)
+      invalidateClinicQueries(userId, 'loadOrders', 'dashboard-summary', 'today-activity', 'today-pickups', 'loadPayments', 'today-collections')
       orders.reload()
     } catch (caught) {
-      toast.error('Could not void the payment', {
-        description: caught instanceof AppError ? caught.message : 'Please try again.',
+      resultDialog.error({
+        title: 'Could not void the payment',
+        message: caught instanceof AppError ? caught.message : 'Please check your connection and try again.',
+        details: caught?.cause?.message ?? caught?.message,
+        retryLabel: 'Try again',
+        onRetry: voidPaymentAction,
       })
     } finally {
       setVoidingBusy(false)
     }
   }
 
-  const handlePrint = () => {
+  const handleVoid = voidPaymentAction
+
+  const printReceipt = () => {
     if (!selected) return
     // Falls back to the name already on the row if the roster has not loaded.
     const printed = printOrderReceipt(
       selected,
-      patientsById.get(selected.patient_id) ?? { full_name: selected.patient_name },
+      selected.patient ?? { full_name: selected.patient_name, cp_number: selected.patient_phone },
     )
     if (!printed) {
-      toast.error('Could not open the receipt', {
-        description: 'Allow pop-ups for this site, then try again.',
+      resultDialog.error({
+        title: 'Could not open the receipt',
+        message: 'Allow pop-ups for this site, then try again.',
+        retryLabel: 'Try again',
+        onRetry: printReceipt,
       })
     }
   }
+
+  const handlePrint = printReceipt
 
   return (
     <>
@@ -374,20 +562,36 @@ export default function OrdersPage() {
       />
 
       <div className="flex flex-col gap-6">
-      {!orders.loading && !orders.error && (
-        <div className="grid gap-3 today-animate sm:grid-cols-3" style={{ animationDelay: '0ms' }}>
-          <MiniStat icon={Package} label="Orders in view" value={total} tone="neutral" />
+      {orders.data && !orders.error && (
+        <div className={cn('grid gap-3 today-animate sm:grid-cols-3 transition-opacity duration-150', searchBusy && 'opacity-60')} style={{ animationDelay: '0ms' }}>
+          <MiniStat
+            icon={Package}
+            label="Orders in view"
+            value={total}
+            tone="neutral"
+            active={status === 'ALL' && paymentFilter === 'ALL'}
+            onClick={() => {
+              const next = new URLSearchParams(searchParams)
+              next.delete('status')
+              next.delete('payment')
+              setSearchParams(next, { replace: true })
+            }}
+          />
           <MiniStat
             icon={AlertCircle}
             label="With balance due"
             value={outstandingCount}
             tone={outstandingCount > 0 ? 'error' : 'success'}
+            active={paymentFilter === 'OUTSTANDING'}
+            onClick={() => updateQuery('payment', 'OUTSTANDING', 'ALL')}
           />
           <MiniStat
             icon={Wallet}
             label="Total outstanding"
             value={formatPeso(totalOutstanding)}
             tone={totalOutstanding > 0 ? 'warning' : 'success'}
+            active={paymentFilter === 'OUTSTANDING'}
+            onClick={() => updateQuery('payment', 'OUTSTANDING', 'ALL')}
           />
         </div>
       )}
@@ -395,54 +599,19 @@ export default function OrdersPage() {
       <Card className="overflow-hidden today-animate" style={{ animationDelay: '60ms' }}>
         <div className="space-y-2.5 border-b border-champagne px-5 py-3.5">
           <div className="flex flex-wrap items-center gap-2.5">
-            <div className="relative min-w-[12rem] flex-1 sm:max-w-sm">
-              {searchBusy ? (
-                <Loader2
-                  className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 animate-spin text-gold"
-                  aria-hidden="true"
-                />
-              ) : (
-                <Search
-                  className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-warmgray"
-                  aria-hidden="true"
-                />
-              )}
-              <input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault()
-                    applySearchNow()
-                  }
-                  if (event.key === 'Escape') {
-                    event.preventDefault()
-                    clearSearch()
-                  }
-                }}
-                placeholder="Search order number or patient name"
-                aria-label="Search order number or patient name"
-                aria-busy={searchBusy}
-                className="h-10 w-full rounded-[var(--radius-control)] border border-champagne bg-ivory/50 pr-10 pl-10 text-sm text-espresso transition-all duration-200 placeholder:text-warmgray/55 focus:border-gold focus:bg-white focus:ring-2 focus:ring-gold/20 focus:outline-none"
-              />
-              {search.length > 0 && (
-                <button
-                  type="button"
-                  onClick={clearSearch}
-                  className="absolute top-1/2 right-2.5 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-warmgray transition-colors hover:bg-champagne/60 hover:text-espresso focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/30"
-                  aria-label="Clear search"
-                >
-                  <X className="size-4" aria-hidden="true" />
-                </button>
-              )}
-            </div>
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              loading={searchBusy}
+              className="min-w-48 flex-1 sm:max-w-sm"
+                placeholder="Search order number, patient, or CP number"
+              ariaLabel="Search order number, patient name, or CP number"
+            />
 
-            {!orders.loading && !orders.error && (
+            {orders.data && !orders.error && (
               <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-gold-light/70 px-2 py-0.5 text-[11px] font-semibold text-gold-dark">
                 <PackageSearch className="size-3.5" strokeWidth={2} aria-hidden="true" />
-                {total} {total === 1 ? 'order' : 'orders'}
-                {filtersActive ? ' · filtered' : ''}
+                Showing {total} of {orders.data?.length ?? 0} orders
               </span>
             )}
 
@@ -454,47 +623,92 @@ export default function OrdersPage() {
                 onClick={clearFilters}
                 className="h-8 shrink-0 px-2 text-[12px] text-warmgray"
               >
-                Clear
+                Clear filters
               </Button>
             )}
           </div>
 
-          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-4">
-            <ChoiceGroup
-              id="payment-filter"
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)_auto] lg:items-end">
+            <FilterChips
               label="Payment"
-              labelPosition="inline"
-              size="compact"
-              layout="wrap"
-              value={paymentFilter}
               options={PAYMENT_FILTER_OPTIONS}
-              onChange={setPaymentFilter}
-              className="lg:w-auto lg:shrink-0"
+              selected={paymentFilter}
+              onChange={(value) => updateQuery('payment', value, 'ALL')}
+              getCount={(value) => paymentCounts[value] ?? 0}
+              busy={searchBusy}
+              getTone={(value) => value === 'OVERDUE' ? {
+                chip: 'border-[var(--color-status-cancelled)] bg-[var(--color-status-cancelled-bg)] text-[var(--color-status-cancelled)]',
+              } : null}
             />
-            <span className="hidden h-5 w-px shrink-0 bg-champagne lg:block" aria-hidden="true" />
-            <ChoiceGroup
-              id="status-filter"
+            <FilterChips
               label="Status"
-              labelPosition="inline"
-              size="compact"
-              layout="scroll"
-              value={status}
               options={STATUS_FILTER_OPTIONS}
-              onChange={setStatus}
-              className="min-w-0 flex-1"
+              selected={status}
+              onChange={(value) => updateQuery('status', value, 'ALL')}
+              getCount={(value) => statusCounts[value] ?? 0}
+              getTone={(value) => STATUS_TONES[value]}
+              busy={searchBusy}
             />
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-semibold tracking-wide text-warmgray uppercase">Sort</span>
+              <Select
+                value={sort}
+                onChange={(event, nextVal) => {
+                  const selectedVal = nextVal ?? event?.target?.value
+                  if (selectedVal) updateQuery('sort', selectedVal, 'newest')
+                }}
+                aria-label="Sort orders"
+                options={SORT_OPTIONS}
+                className="h-9 min-h-9 min-w-40 px-2.5 text-[12px] font-medium"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+            <label className="grid gap-1 text-[11px] font-semibold tracking-wide text-warmgray uppercase">
+              From
+              <input
+                type="date"
+                value={dateFrom}
+                max={dateTo || undefined}
+                onChange={(event) => updateQuery('from', event.target.value)}
+                aria-label="Orders from date"
+                className="h-9 min-w-0 rounded-control border border-champagne bg-surface px-2.5 text-[12px] font-medium normal-case tracking-normal text-espresso focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+              />
+            </label>
+            <label className="grid gap-1 text-[11px] font-semibold tracking-wide text-warmgray uppercase">
+              To
+              <input
+                type="date"
+                value={dateTo}
+                min={dateFrom || undefined}
+                onChange={(event) => updateQuery('to', event.target.value)}
+                aria-label="Orders to date"
+                className="h-9 min-w-0 rounded-control border border-champagne bg-surface px-2.5 text-[12px] font-medium normal-case tracking-normal text-espresso focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+              />
+            </label>
+            <span className="hidden text-[11px] text-warmgray sm:block">Order date range</span>
           </div>
         </div>
 
+        <div
+          aria-busy={searchBusy || orders.loading || undefined}
+          className={cn(
+            'transition-opacity duration-150',
+            (searchBusy || orders.loading) && orders.data && 'opacity-60',
+          )}
+        >
         {orders.error ? (
           <div className="p-5">
             <ErrorNote message={orders.error} />
           </div>
-        ) : orders.loading ? (
+        ) : orders.showSkeleton && !orders.data ? (
           <Table>
             <SkeletonRows rows={6} columns={8} />
           </Table>
-        ) : orders.data && orders.data.length > 0 ? (
+        ) : !orders.data ? (
+          <div className="min-h-72" />
+        ) : total > 0 ? (
           <>
             <Table>
             <THead>
@@ -514,7 +728,8 @@ export default function OrdersPage() {
                 <TR
                   key={order.id}
                   className={cn(
-                    'cursor-pointer',
+                    'order-row cursor-pointer',
+                    `order-row--${STATUS_TONES[order.status]?.slug ?? 'ordered'}`,
                     idx % 2 === 0 ? 'bg-surface' : 'bg-ivory/40',
                   )}
                   onClick={() => setSelectedId(order.id)}
@@ -536,7 +751,7 @@ export default function OrdersPage() {
                     </div>
                   </TD>
                   <TD>
-                    <StatusBadge status={order.status} />
+                    <OrderStatusBadge status={order.status} />
                   </TD>
                   <TD className="tabular text-right text-[13px]">
                     {formatPeso(order.total_amount)}
@@ -582,34 +797,37 @@ export default function OrdersPage() {
               onPageChange={setPage}
             />
           </>
+        ) : orders.data?.length === 0 && !filtersActive ? (
+          <EmptyState
+            icon={Package}
+            title="No orders yet"
+            description="Orders created from a visit will appear here."
+            action={
+              <Button asChild variant="outline" size="sm">
+                <Link to="/new-visit">Record a visit</Link>
+              </Button>
+            }
+          />
         ) : (
           <EmptyState
-            icon={filtersActive ? PackageSearch : Package}
-            title={filtersActive ? 'No matching orders' : 'No orders yet'}
-            description={
-              filtersActive
-                ? 'Try a different search or loosen the status and payment filters.'
-                : 'Orders created from a visit will appear here.'
-            }
+            icon={PackageSearch}
+            title="No matching orders"
+            description="Try a different search or loosen the status, payment, or date filters."
             action={
-              filtersActive ? (
-                <Button variant="outline" size="sm" onClick={clearFilters}>
-                  Clear filters
-                </Button>
-              ) : (
-                <Button asChild variant="outline" size="sm">
-                  <Link to="/new-visit">Record a visit</Link>
-                </Button>
-              )
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                Clear filters
+              </Button>
             }
           />
         )}
+        </div>
       </Card>
       </div>
 
       <OrderDrawer
         order={selected}
-        busy={savingStatus}
+        busy={savingStatus || !isOnline}
+        isOnline={isOnline}
         onClose={() => setSelectedId(null)}
         onPay={() => {
           if (selected) setPayFor(selected)
@@ -631,14 +849,20 @@ export default function OrdersPage() {
         key={payFor?.id ?? 'no-payment'}
         order={payFor}
         onClose={() => setPayFor(null)}
-        onSaved={orders.reload}
+        onSaved={() => {
+          invalidateClinicQueries(userId, 'loadOrders', 'dashboard-summary', 'today-activity', 'today-pickups', 'today-collections', 'loadPayments')
+          orders.reload()
+        }}
       />
 
       <EditOrderDialog
         key={editingOrder?.id ?? 'no-edit'}
         order={editingOrder}
         onClose={() => setEditingOrder(null)}
-        onSaved={orders.reload}
+        onSaved={() => {
+          invalidateClinicQueries(userId, 'loadOrders', 'dashboard-summary', 'today-activity', 'today-pickups')
+          orders.reload()
+        }}
       />
 
       <ConfirmDialog
@@ -647,6 +871,7 @@ export default function OrdersPage() {
         message={`${selected?.order_number ?? 'This order'} will be marked cancelled and stop counting toward outstanding balances. Its payments stay on record.`}
         confirmLabel="Cancel order"
         loading={cancelling}
+        confirmDisabled={!isOnline}
         onConfirm={handleCancel}
         onClose={() => setConfirmCancel(false)}
       />
@@ -657,6 +882,7 @@ export default function OrdersPage() {
         message={`${formatPeso(voiding?.amount ?? 0)} received on ${formatDate(voiding?.payment_date)} will stop counting toward the amount paid. The entry stays in the ledger.`}
         confirmLabel="Void payment"
         loading={voidingBusy}
+        confirmDisabled={!isOnline}
         onConfirm={handleVoid}
         onClose={() => setVoiding(null)}
       />
@@ -664,7 +890,7 @@ export default function OrdersPage() {
   )
 }
 
-function OrderDrawer({ order, busy, onClose, onPay, onStatusChange, onEdit, onPrint, onCancel, onVoid }) {
+function OrderDrawer({ order, busy, isOnline, onClose, onPay, onStatusChange, onEdit, onPrint, onCancel, onVoid }) {
   // Fully controlled: the parent owns which order is selected.
   const handleOpenChange = (next) => {
     if (!next) onClose()
@@ -674,6 +900,7 @@ function OrderDrawer({ order, busy, onClose, onPay, onStatusChange, onEdit, onPr
     () => getPrescriptionForVisit(order?.visit_id ?? null),
     [order?.visit_id],
     'loadVisits',
+    { key: 'order-prescription' },
   )
 
   // Re-reads when the status changes so a freshly logged transition appears
@@ -682,6 +909,7 @@ function OrderDrawer({ order, busy, onClose, onPay, onStatusChange, onEdit, onPr
     () => (order ? getOrderStatusHistory(order.id) : Promise.resolve([])),
     [order?.id, order?.status],
     'loadOrders',
+    { key: 'order-status-history' },
   )
 
   const isCancelled = order?.status === 'CANCELLED'
@@ -701,7 +929,7 @@ function OrderDrawer({ order, busy, onClose, onPay, onStatusChange, onEdit, onPr
           order && (
             <>
               {order.balance > 0 && !isCancelled && (
-                <Button size="sm" onClick={onPay}>
+                <Button size="sm" onClick={onPay} disabled={!isOnline}>
                   <Banknote className="size-4" aria-hidden="true" />
                   Add payment
                 </Button>
@@ -718,7 +946,7 @@ function OrderDrawer({ order, busy, onClose, onPay, onStatusChange, onEdit, onPr
             {/* Balance leads, because it is the reason this drawer gets opened. */}
             <div
               className={cn(
-                'rounded-[var(--radius-control)] border px-4 py-3.5',
+                'rounded-control border px-4 py-3.5',
                 order.balance > 0
                   ? 'border-error/25 bg-error/5'
                   : 'border-success/25 bg-success/5',
@@ -765,7 +993,7 @@ function OrderDrawer({ order, busy, onClose, onPay, onStatusChange, onEdit, onPr
                   variant="outline"
                   size="sm"
                   onClick={onEdit}
-                  disabled={isCancelled}
+                  disabled={isCancelled || !isOnline}
                 >
                   <Pencil className="size-4" aria-hidden="true" />
                   Edit order
@@ -780,6 +1008,7 @@ function OrderDrawer({ order, busy, onClose, onPay, onStatusChange, onEdit, onPr
                     variant="outline"
                     size="sm"
                     onClick={onCancel}
+                    disabled={!isOnline}
                     className="text-error hover:border-error/40 hover:bg-error/5 hover:text-error"
                   >
                     <Ban className="size-4" aria-hidden="true" />
@@ -791,7 +1020,7 @@ function OrderDrawer({ order, busy, onClose, onPay, onStatusChange, onEdit, onPr
 
             <section>
               <DrawerLabel>Prescription</DrawerLabel>
-              <div className="mt-2.5 overflow-hidden rounded-[var(--radius-control)] border border-champagne">
+              <div className="mt-2.5 overflow-hidden rounded-control border border-champagne">
                 {prescription.loading ? (
                   <div className="p-4">
                     <Skeleton className="h-20 w-full" />
@@ -962,6 +1191,7 @@ function OrderDrawer({ order, busy, onClose, onPay, onStatusChange, onEdit, onPr
                               variant="ghost"
                               size="sm"
                               onClick={() => onVoid(payment)}
+                              disabled={!isOnline}
                               aria-label={`Void payment of ${formatPeso(payment.amount)}`}
                               className="text-warmgray hover:text-error"
                             >

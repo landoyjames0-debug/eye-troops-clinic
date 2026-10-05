@@ -1,0 +1,97 @@
+.custom-cursor {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.custom-cursor.is-visible {
+  opacity: 1;
+}
+
+.custom-cursor__dot,
+.custom-cursor__ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 9999px;
+  pointer-events: none;
+  will-change: transform, opacity;
+  transform: translate3d(-50%, -50%, 0);
+}
+
+.custom-cursor__dot {
+  width: 10px;
+  height: 10px;
+  background: var(--color-gold);
+  box-shadow: 0 0 0 1px rgb(53 42 32 / 0.14), 0 0 18px rgb(212 153 58 / 0.5);
+  z-index: 2;
+}
+
+.custom-cursor__ring {
+  width: 34px;
+  height: 34px;
+  border: 1.5px solid rgb(212 153 58 / 0.9);
+  background: rgb(253 240 220 / 0.14);
+  backdrop-filter: blur(2px);
+  z-index: 1;
+  transition:
+    transform 140ms ease,
+    opacity 140ms ease,
+    background 140ms ease,
+    border-color 140ms ease,
+    width 140ms ease,
+    height 140ms ease;
+}
+
+.custom-cursor--interactive .custom-cursor__ring {
+  width: 42px;
+  height: 42px;
+  background: rgb(212 153 58 / 0.11);
+  border-color: rgb(167 116 25 / 0.95);
+}
+
+.custom-cursor--interactive .custom-cursor__dot {
+  width: 7px;
+  height: 7px;
+}
+
+.custom-cursor.is-pressed .custom-cursor__ring {
+  width: 28px;
+  height: 28px;
+  background: rgb(212 153 58 / 0.08);
+}
+
+.custom-cursor--disabled .custom-cursor__ring {
+  border-color: rgb(217 80 64 / 0.8);
+  background: rgb(217 80 64 / 0.09);
+}
+
+.custom-cursor--input .custom-cursor__ring,
+.custom-cursor--input .custom-cursor__dot {
+  opacity: 0;
+}
+
+html.dark .custom-cursor__ring {
+  border-color: rgb(240 200 121 / 0.9);
+  background: rgb(216 168 79 / 0.08);
+}
+
+html.dark .custom-cursor__dot {
+  box-shadow: 0 0 0 1px rgb(242 233 220 / 0.1), 0 0 18px rgb(216 168 79 / 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .custom-cursor,
+  .custom-cursor__dot,
+  .custom-cursor__ring {
+    transition: none !important;
+  }
+
+  .custom-cursor__dot,
+  .custom-cursor__ring {
+    transform: translate3d(-50%, -50%, 0) !important;
+  }
+}

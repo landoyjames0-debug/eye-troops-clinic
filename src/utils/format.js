@@ -1,14 +1,16 @@
+import { CURRENCY_CODE } from '@/lib/constants'
+
 /** Philippine Peso. Format: ₱1,500.00 */
 const peso = new Intl.NumberFormat('en-PH', {
   style: 'currency',
-  currency: 'PHP',
+  currency: CURRENCY_CODE,
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 })
 
 const pesoWhole = new Intl.NumberFormat('en-PH', {
   style: 'currency',
-  currency: 'PHP',
+  currency: CURRENCY_CODE,
   minimumFractionDigits: 0,
   maximumFractionDigits: 0,
 })

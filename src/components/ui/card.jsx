@@ -4,7 +4,7 @@ export function Card({ className, ...props }) {
   return (
     <div
       className={cn(
-        'min-w-0 rounded-[var(--radius-card)] border border-champagne bg-surface shadow-card transition-shadow duration-200 hover:shadow-raised',
+        'min-w-0 rounded-card border border-champagne bg-surface shadow-card transition-shadow duration-200 hover:shadow-raised',
         className,
       )}
       {...props}

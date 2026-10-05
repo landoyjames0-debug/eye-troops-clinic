@@ -1,5 +1,6 @@
 export const APP_NAME = 'Eye TroOps'
 export const APP_SUBTITLE = 'OPTICAL CLINIC'
+export const CURRENCY_CODE = 'PHP'
 
 /** Official clinic artwork, served from /public. */
 export const LOGO_PATH = '/eye-troops-logo.png'

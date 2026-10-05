@@ -97,7 +97,7 @@ export function ChoiceGroup({
         {label && (
           <span
             id={`${id}-label`}
-            className="w-[4.25rem] shrink-0 text-[11px] font-semibold tracking-wide text-warmgray uppercase"
+            className="w-17 shrink-0 text-[11px] font-semibold tracking-wide text-warmgray uppercase"
           >
             {label}
           </span>
