@@ -34,6 +34,14 @@
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-display: 'Manrope', 'Inter', ui-sans-serif, system-ui, sans-serif;
 
+  /* Border radius scale */
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
   /* 14px cards, 9px controls — generous but never pill-shaped */
   --radius-card: 0.875rem;
   --radius-control: 0.5625rem;
@@ -803,7 +811,7 @@ html.dark .text-gold-dark {
   width: 4rem;
   height: 4rem;
   flex: 0 0 auto;
-  border-radius: 0.75rem;
+  border-radius: 50%;
   object-fit: contain;
 }
 

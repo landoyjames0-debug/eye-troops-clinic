@@ -6,6 +6,13 @@ const supabaseKey =
 
 export const isSupabaseConfigured = supabaseUrl.startsWith('https://') && supabaseKey.length > 20
 
+if (import.meta.env.DEV && !isSupabaseConfigured) {
+  console.warn('[Supabase Config] Not configured:', {
+    VITE_SUPABASE_URL: supabaseUrl ? 'Set' : 'Missing',
+    VITE_SUPABASE_PUBLISHABLE_KEY: supabaseKey ? `Set (len: ${supabaseKey.length})` : 'Missing',
+  })
+}
+
 const REQUEST_TIMEOUT_MS = 10_000
 const MAX_READ_ATTEMPTS = 3
 

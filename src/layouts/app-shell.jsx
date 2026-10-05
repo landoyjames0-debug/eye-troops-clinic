@@ -47,7 +47,7 @@ export function BrandMark({ compact = false }) {
         alt=""
         width={40}
         height={40}
-        className="size-10 shrink-0 rounded-lg object-contain"
+        className="size-10 shrink-0 rounded-full object-contain"
       />
       <span className="sidebar-brand-text leading-tight" aria-hidden={compact}>
         <span className="block font-display text-[15px] font-extrabold tracking-tight text-espresso whitespace-nowrap">
