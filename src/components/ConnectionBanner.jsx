@@ -1,13 +1,38 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { AlertTriangle, RefreshCw, X } from 'lucide-react'
 import { useSupabaseHealth } from '@/hooks/use-supabase-health'
+import { isSupabaseConfigured } from '@/lib/supabase'
+
+const DISMISS_KEY = 'eyetroops.connection-banner-dismissed'
 
 export function ConnectionBanner() {
-  const { status, outageId, retry } = useSupabaseHealth()
-  const [dismissedOutage, setDismissedOutage] = useState(null)
+  const location = useLocation()
+  const { status, retry } = useSupabaseHealth()
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      return sessionStorage.getItem(DISMISS_KEY) === 'true'
+    } catch {
+      return false
+    }
+  })
   const [retrying, setRetrying] = useState(false)
 
-  if (status === 'online' || dismissedOutage === outageId) return null
+  // Clear dismissal once connection is restored so future outages are not missed
+  useEffect(() => {
+    if (status === 'online') {
+      setDismissed(false)
+      try {
+        sessionStorage.removeItem(DISMISS_KEY)
+      } catch {}
+    }
+  }, [status])
+
+  // Never show on auth pages (/login, /signup) or when Supabase is not configured yet
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/signup'
+  if (isAuthPage || !isSupabaseConfigured || status === 'online' || dismissed) {
+    return null
+  }
 
   const handleRetry = async () => {
     setRetrying(true)
@@ -16,6 +41,13 @@ export function ConnectionBanner() {
     } finally {
       setRetrying(false)
     }
+  }
+
+  const handleDismiss = () => {
+    setDismissed(true)
+    try {
+      sessionStorage.setItem(DISMISS_KEY, 'true')
+    } catch {}
   }
 
   return (
@@ -44,7 +76,7 @@ export function ConnectionBanner() {
       </button>
       <button
         type="button"
-        onClick={() => setDismissedOutage(outageId)}
+        onClick={handleDismiss}
         className="inline-flex size-8 shrink-0 items-center justify-center rounded-control text-warmgray transition-colors hover:bg-ivory hover:text-espresso"
         aria-label="Dismiss connection message"
         title="Dismiss"
