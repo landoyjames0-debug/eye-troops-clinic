@@ -1,9 +1,13 @@
 import { listOrders, outstandingBalance, withTotals } from './orders.service'
 import { listExpenses, totalExpenses } from './expenses.service'
 import { listPayments } from './payments.service'
+import { listAppointments } from './appointments.service'
 import { listPatients } from './patients.service'
+import { getFollowupCounts, listFollowups } from '@/lib/followups'
+import { APPOINTMENT_STATUS, normalizeAppointmentStatus } from '@/lib/appointment-status'
 import { monthBounds, toAmount, toDateKey, yearBounds } from '@/utils/dates'
 import { monthLabel, formatMonthYear } from '@/utils/format'
+import { ORDER_STATUS } from '@/lib/constants'
 
 /**
  * All money figures here are summed from `payments` and `expenses` at read
@@ -14,17 +18,18 @@ export async function getDashboardSummary() {
   const today = toDateKey()
   const { from, to } = monthBounds(new Date().getFullYear(), new Date().getMonth())
 
-  const [todayPayments, monthPayments, monthExpenses, orders] = await Promise.all([
+  const [todayPayments, monthPayments, monthExpenses, orders, appointmentsTodayList, followupCounts] = await Promise.all([
     listPayments(today, today),
     listPayments(from, to),
     listExpenses(from, to),
     listOrders(),
+    listAppointments({ from: `${today}T00:00:00`, to: `${today}T23:59:59` }),
+    getFollowupCounts(),
   ])
 
   const salesThisMonth = toAmount(monthPayments.reduce((sum, row) => sum + Number(row.amount), 0))
   const expensesThisMonth = totalExpenses(monthExpenses)
-  const openOrders = orders.filter((order) => order.status !== 'CLAIMED')
-
+  const openOrders = orders.filter((order) => ![ORDER_STATUS.CLAIMED, ORDER_STATUS.CANCELLED].includes(order.status))
   return {
     collectedToday: toAmount(
       todayPayments.reduce((sum, row) => sum + Number(row.amount), 0),
@@ -33,7 +38,11 @@ export async function getDashboardSummary() {
     expensesThisMonth,
     monthNet: toAmount(salesThisMonth - expensesThisMonth),
     unpaidBalances: outstandingBalance(orders),
-    pickupsDue: openOrders.filter((order) => order.status === 'READY_FOR_PICKUP').length,
+    pickupsDue: openOrders.filter((order) => order.status === ORDER_STATUS.READY_FOR_PICKUP).length,
+    followUpsDue: followupCounts.all,
+    appointmentsToday: appointmentsTodayList.filter(
+      (item) => normalizeAppointmentStatus(item.status) !== APPOINTMENT_STATUS.CANCELLED,
+    ).length,
     currentMonthLabel: formatMonthYear(new Date()),
   }
 }
@@ -73,21 +82,22 @@ export async function getMonthlySeries(year) {
  * uses, so it can never disagree with the ledger.
  */
 export async function getTodayActivity(date = toDateKey()) {
-  const [orders, payments, patients] = await Promise.all([
+  const [orders, payments, appointments] = await Promise.all([
     listOrders(),
     listPayments(date, date),
-    listPatients(),
+    listAppointments({ from: `${date}T00:00:00`, to: `${date}T23:59:59` }),
   ])
 
-  const nameById = new Map(patients.map((patient) => [patient.id, patient.full_name]))
   const orderById = new Map(orders.map((order) => [order.id, order]))
   const rows = []
 
   for (const order of orders) {
-    const patient = nameById.get(order.patient_id) ?? 'Unknown patient'
+    const patient = order.patient_name ?? 'Unknown patient'
     if (String(order.order_date).startsWith(date)) {
       rows.push({
         id: `order-${order.id}`,
+        order_id: order.id,
+        patient_id: order.patient_id,
         patient,
         transaction: 'New Order',
         amount: toAmount(order.total_amount),
@@ -96,13 +106,15 @@ export async function getTodayActivity(date = toDateKey()) {
       })
     }
     // A claimed order is a pickup event, and it carries no money of its own.
-    if (order.status === 'CLAIMED' && String(order.updated_at ?? '').startsWith(date)) {
+    if (order.status === ORDER_STATUS.CLAIMED && String(order.updated_at ?? '').startsWith(date)) {
       rows.push({
         id: `pickup-${order.id}`,
+        order_id: order.id,
+        patient_id: order.patient_id,
         patient,
         transaction: 'Pickup',
         amount: 0,
-        status: 'CLAIMED',
+        status: ORDER_STATUS.CLAIMED,
         at: order.updated_at,
       })
     }
@@ -112,11 +124,26 @@ export async function getTodayActivity(date = toDateKey()) {
     const order = orderById.get(payment.order_id)
     rows.push({
       id: `payment-${payment.id}`,
-      patient: order ? (nameById.get(order.patient_id) ?? 'Unknown patient') : 'Unknown patient',
+      order_id: order?.id ?? null,
+      patient_id: order?.patient_id ?? null,
+      patient: order?.patient_name ?? 'Unknown patient',
       transaction: payment.notes?.trim() || 'Payment',
       amount: toAmount(payment.amount),
       status: 'PAID',
       at: payment.created_at ?? payment.payment_date,
+    })
+  }
+
+  for (const appointment of appointments) {
+    rows.push({
+      id: `appointment-${appointment.id}`,
+      appointment_id: appointment.id,
+      patient_id: appointment.patient_id,
+      patient: appointment.patient_name ?? 'Unknown patient',
+      transaction: appointment.appointment_type === 'Follow Up' ? 'Follow-up' : 'Appointment',
+      amount: 0,
+      status: appointment.status,
+      at: `${appointment.appointment_date}T${appointment.appointment_time}`,
     })
   }
 
@@ -127,20 +154,23 @@ export async function getTodayActivity(date = toDateKey()) {
 
 /** Orders waiting for a patient to collect them. */
 export async function getPickupsDue() {
-  const [orders, patients] = await Promise.all([listOrders(), listPatients()])
-  const nameById = new Map(patients.map((patient) => [patient.id, patient.full_name]))
+  const orders = await listOrders('', ORDER_STATUS.READY_FOR_PICKUP, 'ALL')
 
   return orders
-    .filter((order) => order.status === 'READY_FOR_PICKUP')
     .map((order) => ({
       id: order.id,
-      patient: nameById.get(order.patient_id) ?? 'Unknown patient',
+      patient_id: order.patient_id,
+      patient: order.patient_name ?? 'Unknown patient',
       order_number: order.order_number,
       ready_date: order.updated_at ?? order.order_date,
       balance: toAmount(order.balance),
       status: order.status,
     }))
     .sort((a, b) => Date.parse(a.ready_date) - Date.parse(b.ready_date))
+}
+
+export async function getFollowUpsDue() {
+  return listFollowups({ filter: 'all', limit: 5 })
 }
 
 export { withTotals }

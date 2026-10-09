@@ -1,29 +1,52 @@
 @import 'tailwindcss';
 
-@theme {
-  /* Eye TroOps brand palette — vivid & warm */
-  --color-gold: #d4993a; /* Bright Amber Gold — accents, active states */
-  --color-gold-dark: #a87520; /* Rich Antique Gold — legible action surfaces */
-  --color-gold-light: #fdf0dc; /* Light Amber Cream — active row fills */
-  --color-champagne: #e8d9c4; /* Champagne Border — all dividers */
-  --color-ivory: #fdf8f2; /* Warm Ivory — app background */
-  --color-espresso: #352a20; /* Deep Espresso — primary text */
-  --color-warmgray: #6d5f52; /* Warm Gray — secondary text */
+/* `dark:` utilities follow the app theme toggle (html.dark), not the OS
+   preference, so the sidebar Light/Dark control governs every component. */
+@custom-variant dark (&:where(.dark, .dark *));
 
-  /* Status — vibrant, high-contrast */
-  --color-success: #1a9a5c; /* Vivid Emerald */
-  --color-warning: #e08c1e; /* Warm Saffron */
-  --color-error: #d95040; /* Bright Coral */
+@theme {
+  /* Eye TroOps brand palette — warm, premium, optical-clinic appropriate */
+  --color-gold: #b8893d; /* Primary Champagne Gold — accents, active states */
+  --color-gold-dark: #8f672c; /* Dark Antique Gold — legible action surfaces */
+  --color-gold-light: #f4e7d3; /* Pale Champagne — active row fills */
+  --color-champagne: #e7d9c5; /* Champagne Border — all dividers */
+  --color-ivory: #fbf5ec; /* Warm Ivory — app background */
+  --color-espresso: #3f3328; /* Espresso Brown — primary text */
+  --color-warmgray: #75695d; /* Warm Gray — secondary text */
+
+  /* Status — high-contrast but warm */
+  --color-success: #3f8f68;
+  --color-warning: #c98a32;
+  --color-error: #b85c55;
+  --color-status-ordered: #40566b;
+  --color-status-ordered-bg: #e7eef4;
+  --color-status-in-lab: #76500b;
+  --color-status-in-lab-bg: #fff2d2;
+  --color-status-ready: #17633b;
+  --color-status-ready-bg: #e5f4ea;
+  --color-status-claimed: #4d463d;
+  --color-status-claimed-bg: #f1eee9;
+  --color-status-cancelled: #8b3d3a;
+  --color-status-cancelled-bg: #f8e8e6;
 
   /* Accent colors for tile variety */
   --color-teal: #1a8f8f; /* Teal — expenses */
   --color-violet: #7e5bb5; /* Violet — net */
 
   --color-surface: #ffffff; /* Soft White — cards */
+  --color-elevated: #ffffff; /* Elevated surfaces (floating sidebar) — white in light */
 
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-display: 'Manrope', 'Inter', ui-sans-serif, system-ui, sans-serif;
 
+  /* Border radius scale */
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
   /* 14px cards, 9px controls — generous but never pill-shaped */
   --radius-card: 0.875rem;
   --radius-control: 0.5625rem;
@@ -32,48 +55,959 @@
   --shadow-card: 0 1px 3px rgb(53 42 32 / 0.06), 0 1px 2px rgb(53 42 32 / 0.04);
   --shadow-raised: 0 4px 12px rgb(53 42 32 / 0.08), 0 2px 4px rgb(53 42 32 / 0.04);
   --shadow-pop: 0 10px 30px rgb(53 42 32 / 0.12), 0 2px 8px rgb(53 42 32 / 0.06);
+
+  /* Fluid spacing scale */
+  --space-1: clamp(0.25rem, 0.2rem + 0.25vw, 0.5rem);
+  --space-2: clamp(0.5rem, 0.4rem + 0.5vw, 0.75rem);
+  --space-3: clamp(0.75rem, 0.6rem + 0.75vw, 1rem);
+  --space-4: clamp(1rem, 0.8rem + 1vw, 1.5rem);
+  --space-5: clamp(1.25rem, 1rem + 1.25vw, 2rem);
+  --space-6: clamp(1.5rem, 1.2rem + 1.5vw, 2.5rem);
+  --space-8: clamp(2rem, 1.6rem + 2vw, 3.5rem);
+  --space-10: clamp(2.5rem, 2rem + 2.5vw, 4.5rem);
+  --space-12: clamp(3rem, 2.4rem + 3vw, 5.5rem);
+
+  /* Fluid typography scale */
+  --text-xs: clamp(0.6875rem, 0.65rem + 0.1875vw, 0.75rem);
+  --text-sm: clamp(0.8125rem, 0.75rem + 0.3125vw, 0.875rem);
+  --text-base: clamp(0.9375rem, 0.85rem + 0.4375vw, 1rem);
+  --text-lg: clamp(1.0625rem, 0.95rem + 0.5625vw, 1.125rem);
+  --text-xl: clamp(1.25rem, 1.1rem + 0.75vw, 1.5rem);
+  --text-2xl: clamp(1.5rem, 1.25rem + 1.25vw, 2rem);
+  --text-3xl: clamp(1.875rem, 1.5rem + 1.875vw, 2.5rem);
+  --text-4xl: clamp(2.25rem, 1.75rem + 2.5vw, 3.5rem);
+
+  /* Fluid container max-widths */
+  --container-sm: 640px;
+  --container-md: 768px;
+  --container-lg: 1024px;
+  --container-xl: 1280px;
+  --container-2xl: 1536px;
+  --container-page: min(100%, 1440px);
+  --container-page-wide: min(100%, 1600px);
+  --container-max: min(100%, 1600px);
+
+  /* Fixed-pixel sidebar widths: a 72px collapsed icon rail that expands
+     to exactly 244px. Deliberately px (not rem) so browser font-size/zoom
+     settings can never inflate the panel.
+     --sidebar-content-offset is the fixed left margin of the main content:
+     72px rail + 28px breathing gap. Content never moves on hover/focus;
+     it only shifts to --sidebar-expanded when the sidebar is pinned. */
+  --sidebar-collapsed: 72px;
+  --sidebar-expanded: 244px;
+  --sidebar-content-offset: 100px;
 }
 
-@layer base {
-  html {
-    -webkit-text-size-adjust: 100%;
+:root {
+  --safe-top: env(safe-area-inset-top, 0);
+  --safe-bottom: env(safe-area-inset-bottom, 0);
+  --safe-left: env(safe-area-inset-left, 0);
+  --safe-right: env(safe-area-inset-right, 0);
+}
+
+html {
+  color-scheme: light;
+  -webkit-text-size-adjust: 100%;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background-color: var(--color-ivory);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  color: var(--color-espresso);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Flex/grid children don't overflow their containers */
+:where(flex, grid) > * {
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Long names, notes, URLs wrap instead of overflowing */
+:where(p, span, div, td, th, li, label, button, a) {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Images and media never exceed their container */
+img, svg, video, canvas, iframe {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Focus styles */
+:focus-visible {
+  outline: 2px solid var(--color-gold-dark);
+  outline-offset: 2px;
+}
+
+::selection {
+  background-color: var(--color-gold-light);
+  color: var(--color-espresso);
+}
+
+/* Native date/number spinners */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+/* Headings use display font and fluid sizing */
+h1 { font-size: var(--text-4xl); font-family: var(--font-display); font-weight: 700; line-height: 1.1; color: var(--color-espresso); }
+h2 { font-size: var(--text-3xl); font-family: var(--font-display); font-weight: 600; line-height: 1.2; color: var(--color-espresso); }
+h3 { font-size: var(--text-2xl); font-family: var(--font-display); font-weight: 600; line-height: 1.25; color: var(--color-espresso); }
+h4 { font-size: var(--text-xl); font-family: var(--font-display); font-weight: 600; line-height: 1.3; color: var(--color-espresso); }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+html.dark {
+  color-scheme: dark;
+  /* Eye TroOps dark theme — sophisticated warm dark, never pure black. Every
+     semantic token used across the app remaps here, so the sidebar toggle
+     re-themes the ENTIRE application (cards, tables, inputs, dialogs…). */
+  --color-gold: #c9953f; /* Primary gold */
+  --color-gold-dark: #e0b15a; /* Light gold — text accents on dark */
+  --color-gold-light: #2e2617; /* Subtle dark-gold fill — active/hover states */
+  --color-champagne: #3a342c; /* Dark border */
+  --color-ivory: #171513; /* Dark background — page */
+  --color-espresso: #f5f0e8; /* Primary text */
+  --color-warmgray: #b9b0a4; /* Secondary text */
+  --color-success: #55a878;
+  --color-warning: #d59a42;
+  --color-error: #c96a61;
+  --color-status-ordered: #c0d2e3;
+  --color-status-ordered-bg: #293744;
+  --color-status-in-lab: #f5d27e;
+  --color-status-in-lab-bg: #4a3b1e;
+  --color-status-ready: #a6e2b9;
+  --color-status-ready-bg: #20392b;
+  --color-status-claimed: #ded6cb;
+  --color-status-claimed-bg: #3a3732;
+  --color-status-cancelled: #f2ada8;
+  --color-status-cancelled-bg: #482b2a;
+  --color-teal: #61c9c3;
+  --color-violet: #b6a0e5;
+  --color-surface: #211e1a; /* Dark surface — cards */
+  --color-elevated: #29251f; /* Dark elevated surface — floating sidebar */
+  --shadow-card: 0 1px 3px rgb(0 0 0 / 0.3), 0 1px 2px rgb(0 0 0 / 0.22);
+  --shadow-raised: 0 4px 12px rgb(0 0 0 / 0.35), 0 2px 4px rgb(0 0 0 / 0.22);
+  --shadow-pop: 0 10px 30px rgb(0 0 0 / 0.45), 0 2px 8px rgb(0 0 0 / 0.25);
+}
+
+html.dark body {
+  background-color: var(--color-ivory);
+}
+
+html.dark .bg-white {
+  background-color: var(--color-surface);
+}
+
+html.dark .bg-gold.text-white,
+html.dark .bg-gold-dark.text-white {
+  color: #241b0e;
+}
+
+.order-row {
+  box-shadow: inset 3px 0 transparent;
+}
+
+.order-row--ordered {
+  box-shadow: inset 3px 0 var(--color-status-ordered);
+}
+
+.order-row--in-lab {
+  box-shadow: inset 3px 0 var(--color-status-in-lab);
+}
+
+.order-row--ready {
+  box-shadow: inset 3px 0 var(--color-status-ready);
+}
+
+.order-row--claimed {
+  box-shadow: inset 3px 0 var(--color-status-claimed);
+}
+
+.order-row--cancelled {
+  box-shadow: inset 3px 0 var(--color-status-cancelled);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   App shell & sidebar — single source of truth
+   The rail is always position:fixed and overlays the content.
+   Content margin is fixed at --sidebar-content-offset (rail + 28px gap)
+   and ONLY shifts to --sidebar-expanded-width when the sidebar is pinned.
+   CLS on hover = 0.
+   ══════════════════════════════════════════════════════════════════ */
+.app-shell-root {
+  --sidebar-collapsed-width: var(--sidebar-collapsed);
+  --sidebar-expanded-width: var(--sidebar-expanded);
+  --sidebar-content-offset: 100px; /* 72px rail + 28px breathing gap */
+  --container-max: var(--container-page);
+}
+
+.sidebar-rail {
+  display: none;
+}
+
+/* ── Brand ── */
+.sidebar-brand-row {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.25rem;
+  margin-bottom: 0.875rem;
+  padding-left: 0.5rem;
+}
+
+.sidebar-brand-toggle {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-espresso);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.sidebar-brand-text {
+  min-width: 0;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition:
+    max-width 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 160ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 160ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-rail-expanded .sidebar-brand-text {
+  max-width: 170px;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* The mobile header always shows the full wordmark. */
+.mobile-app-header .sidebar-brand-text {
+  max-width: 200px;
+  opacity: 1;
+  transform: none;
+}
+
+/* ── Pin / close controls ── */
+.sidebar-pin-toggle,
+.sidebar-close-toggle {
+  display: none;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-warmgray);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.sidebar-pin-toggle:hover,
+.sidebar-close-toggle:hover {
+  background: var(--color-gold-light);
+  color: var(--color-espresso);
+}
+
+.sidebar-rail-expanded .sidebar-pin-toggle,
+.sidebar-rail-expanded .sidebar-close-toggle {
+  display: flex;
+}
+
+.sidebar-rail-pinned .sidebar-pin-toggle {
+  color: var(--color-gold-dark);
+  background: var(--color-gold-light);
+}
+
+/* ── Quick patient search ── */
+.sidebar-search-wrap {
+  margin: 0 0 0.75rem;
+  padding: 0 0.25rem;
+}
+
+.sidebar-search-input-shell {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.sidebar-search-icon {
+  position: absolute;
+  left: 0.75rem;
+  width: 0.9rem;
+  height: 0.9rem;
+  color: var(--color-warmgray);
+  pointer-events: none;
+}
+
+.sidebar-search-input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--color-champagne);
+  border-radius: var(--radius-control);
+  background: var(--color-ivory);
+  color: var(--color-espresso);
+  font-size: 0.75rem;
+  padding: 0.625rem 0.75rem 0.625rem 2.2rem;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.sidebar-search-input::placeholder {
+  color: var(--color-warmgray);
+}
+
+.sidebar-search-input:focus {
+  border-color: var(--color-gold);
+  box-shadow: 0 0 0 3px rgb(212 153 58 / 0.12);
+  outline: none;
+}
+
+/* ── Navigation ── */
+.sidebar-primary-navigation {
+  display: grid;
+  align-content: start;
+  gap: 0.375rem;
+  flex: 1;
+  min-height: 0;
+  padding-top: 0.25rem;
+}
+
+.sidebar-nav-item,
+.sidebar-profile-link,
+.sidebar-signout {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  padding-left: 1rem;
+  padding-right: 0.5rem;
+  overflow: visible;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--color-warmgray);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+
+.sidebar-nav-item:hover,
+.sidebar-profile-link:hover,
+.sidebar-signout:hover {
+  background: var(--color-gold-light);
+  color: var(--color-espresso);
+}
+
+.sidebar-nav-item-active,
+.sidebar-nav-item-active:hover,
+.sidebar-profile-link-active,
+.sidebar-profile-link-active:hover {
+  background: var(--color-gold-light);
+  color: var(--color-espresso);
+}
+
+.sidebar-icon-box {
+  display: flex;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-nav-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+}
+
+.sidebar-active-indicator {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 3px;
+  height: 24px;
+  transform: translateY(-50%);
+  border-radius: 0 4px 4px 0;
+  background: var(--color-gold);
+  transition: opacity 150ms ease;
+}
+
+.sidebar-nav-label {
+  min-width: 0;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(-4px);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition:
+    max-width 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 160ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 160ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-rail-expanded .sidebar-nav-label {
+  max-width: 170px;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* ── Profile + footer ── */
+.sidebar-footer {
+  display: grid;
+  gap: 0.375rem;
+  margin-top: auto;
+  border-top: 1px solid var(--color-champagne);
+  padding-top: 0.75rem;
+}
+
+.sidebar-profile-link {
+  height: 48px;
+  padding-left: 0.625rem;
+  padding-right: 0.625rem;
+  gap: 0.625rem;
+}
+
+.sidebar-profile-avatar {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--color-gold-light);
+  color: var(--color-gold-dark);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px rgb(201 138 27 / 0.18);
+}
+
+.sidebar-profile-link-active .sidebar-profile-avatar {
+  box-shadow: 0 0 0 1.5px var(--color-gold), 0 0 0 3px rgb(201 138 27 / 0.14);
+}
+
+.sidebar-profile-copy {
+  display: flex;
+  min-width: 0;
+  max-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition:
+    max-width 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 160ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 160ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-rail-expanded .sidebar-profile-copy {
+  flex: 1;
+  max-width: 150px;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.sidebar-profile-name {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  color: var(--color-espresso);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-profile-caption {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  margin-top: 0.125rem;
+  color: var(--color-warmgray);
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-profile-settings {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  margin-left: auto;
+  color: var(--color-warmgray);
+  opacity: 0;
+  transition: opacity 160ms ease, color 150ms ease;
+}
+
+.sidebar-profile-link:hover .sidebar-profile-settings {
+  color: var(--color-espresso);
+}
+
+.sidebar-rail-expanded .sidebar-profile-settings {
+  opacity: 1;
+}
+
+/* ── Collapsed-only tooltips ── */
+.sidebar-tooltip {
+  position: absolute;
+  z-index: 70;
+  top: 50%;
+  left: calc(100% + 0.625rem);
+  visibility: hidden;
+  transform: translate(-4px, -50%);
+  border: 1px solid var(--color-champagne);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  padding: 0.375rem 0.625rem;
+  box-shadow: var(--shadow-pop);
+  color: var(--color-espresso);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 120ms ease, visibility 120ms;
+}
+
+.sidebar-rail:not(.sidebar-rail-expanded) .sidebar-nav-item:hover .sidebar-tooltip,
+.sidebar-rail:not(.sidebar-rail-expanded) .sidebar-nav-item:focus-visible .sidebar-tooltip,
+.sidebar-rail:not(.sidebar-rail-expanded) .sidebar-profile-link:hover .sidebar-tooltip,
+.sidebar-rail:not(.sidebar-rail-expanded) .sidebar-profile-link:focus-visible .sidebar-tooltip,
+.sidebar-rail:not(.sidebar-rail-expanded) .sidebar-signout:hover .sidebar-tooltip,
+.sidebar-rail:not(.sidebar-rail-expanded) .sidebar-signout:focus-visible .sidebar-tooltip {
+  visibility: visible;
+  transform: translate(0, -50%);
+  opacity: 1;
+}
+
+/* ── Focus rings ── */
+.sidebar-nav-item:focus-visible,
+.sidebar-brand-toggle:focus-visible,
+.sidebar-pin-toggle:focus-visible,
+.sidebar-close-toggle:focus-visible,
+.sidebar-profile-link:focus-visible,
+.sidebar-signout:focus-visible {
+  outline: 2px solid var(--color-gold-dark);
+  outline-offset: 2px;
+}
+
+/* ── Main content + mobile header ── */
+.app-shell-main {
+  margin-left: 0;
+}
+
+.mobile-app-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--color-champagne);
+  background: color-mix(in srgb, var(--color-surface) 90%, transparent);
+  padding: 0.75rem 1rem;
+  backdrop-filter: blur(8px);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Mobile (< 768px): conventional slide-out drawer with backdrop.
+   Hover is never used here — the drawer opens on tap.
+   ══════════════════════════════════════════════════════════════════ */
+@media (max-width: 767.98px) {
+  .sidebar-rail {
+    position: fixed;
+    z-index: 50;
+    inset: 0 auto 0 0;
+    display: flex;
+    width: min(290px, 86vw);
+    height: 100dvh;
+    max-height: 100dvh;
+    flex-direction: column;
+    overflow-y: auto;
+    border-right: 1px solid var(--color-champagne);
+    background: var(--color-surface);
+    padding: 1rem 0.75rem calc(1rem + env(safe-area-inset-bottom));
+    box-shadow: 12px 0 28px rgb(0 0 0 / 28%);
+    transform: translateX(-100%);
+    transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), visibility 220ms;
+    visibility: hidden;
   }
 
-  body {
-    @apply bg-ivory font-sans text-espresso antialiased;
+  .sidebar-rail.sidebar-rail-expanded {
+    transform: translateX(0);
+    visibility: visible;
   }
 
-  h1,
-  h2,
-  h3,
-  h4 {
-    @apply font-display text-espresso;
+  .sidebar-primary-navigation {
+    flex: 0 0 auto;
   }
 
-  /* Visible, high-contrast focus for keyboard users on every control. */
-  :focus-visible {
-    @apply outline-2 outline-offset-2 outline-gold;
+  /* The drawer is always fully labelled; it never renders an icon rail. */
+  .sidebar-brand-text { max-width: 170px; opacity: 1; transform: none; }
+  .sidebar-nav-label { max-width: 170px; opacity: 1; transform: none; }
+  .sidebar-profile-copy { flex: 1; max-width: 150px; opacity: 1; transform: none; }
+  .sidebar-profile-settings { opacity: 1; }
+  .sidebar-close-toggle { display: flex; }
+  .sidebar-tooltip { display: none; }
+  .sidebar-nav-item,
+  .sidebar-profile-link,
+  .sidebar-signout { justify-content: flex-start; padding-left: 1rem; }
+
+  .sidebar-backdrop { display: block; }
+  .app-shell-main { margin-left: 0; }
+}
+
+@media (max-width: 420px) {
+  .mobile-app-header {
+    padding-inline: 0.625rem;
   }
 
-  ::selection {
-    @apply bg-gold-light text-espresso;
+  .mobile-app-header > div:first-child {
+    min-width: 0;
+    flex: 1;
+    gap: 0.375rem;
   }
 
-  /* Native date/number spinners clash with the quiet aesthetic. */
-  input[type='number']::-webkit-outer-spin-button,
-  input[type='number']::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
+  .mobile-app-header > div:last-child {
+    flex: 0 0 auto;
+    gap: 0;
   }
-  input[type='number'] {
-    -moz-appearance: textfield;
+
+  .mobile-app-header .sidebar-brand-text {
+    max-width: clamp(110px, 32vw, 150px);
   }
+}
+
+@media (max-width: 360px) {
+  .mobile-app-header .sidebar-brand-text > span:last-child {
+    display: none;
+  }
+
+  .mobile-app-header .sidebar-brand-text {
+    max-width: 90px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Tablet (768px–1023px): tap-to-open overlay rail.
+   The rail slides in over the page; content never shifts.
+   ══════════════════════════════════════════════════════════════════ */
+@media (min-width: 768px) and (max-width: 1023.98px) {
+  .sidebar-rail {
+    position: fixed;
+    z-index: 60;
+    inset: 0 auto 0 0;
+    display: flex;
+    width: var(--sidebar-collapsed-width);
+    height: 100dvh;
+    flex-direction: column;
+    overflow: visible;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    padding: 0.875rem 0.5rem;
+    transition:
+      width 200ms cubic-bezier(0.4, 0, 0.2, 1),
+      background-color 200ms ease,
+      box-shadow 200ms ease;
+  }
+
+  .sidebar-rail.sidebar-rail-expanded {
+    width: var(--sidebar-expanded-width);
+    border-right: 1px solid var(--color-champagne);
+    background: var(--color-elevated);
+    box-shadow: 12px 0 28px rgb(53 42 32 / 12%);
+  }
+
+  html.dark .sidebar-rail.sidebar-rail-expanded {
+    box-shadow: 12px 0 28px rgb(0 0 0 / 30%);
+  }
+
+  .app-shell-root .sidebar-rail:not(.sidebar-rail-expanded) {
+    width: var(--sidebar-collapsed-width);
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  .sidebar-rail-expanded .sidebar-primary-navigation {
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-champagne) transparent;
+  }
+
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-brand-row {
+    justify-content: center;
+    padding-left: 0;
+  }
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-brand-toggle {
+    justify-content: center;
+  }
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-nav-item,
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-profile-link,
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-signout {
+    justify-content: center;
+    gap: 0;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-search-wrap {
+    padding-inline: 0;
+  }
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-search-input {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+  }
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-search-icon {
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    transform: translateX(-50%);
+  }
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-footer {
+    border-top-color: transparent;
+  }
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-nav-item-active,
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-nav-item-active:hover,
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-profile-link-active,
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-profile-link-active:hover {
+    background: transparent;
+  }
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-nav-item-active .sidebar-nav-icon {
+    color: var(--color-gold);
+  }
+
+  .mobile-app-header {
+    display: none;
+  }
+
+  /* Content does NOT move — the expanded rail overlays it. */
+  .app-shell-main {
+    margin-left: var(--sidebar-content-offset);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Desktop (>= 1024px): hover-to-expand overlay rail.
+   Collapsed: transparent 72px icon strip. Expanded: overlays the page
+   with a background + shadow. Content margin is fixed at
+   --sidebar-content-offset (100px) UNLESS the sidebar is pinned, in
+   which case data-sidebar-pinned shifts it to --sidebar-expanded.
+   ══════════════════════════════════════════════════════════════════ */
+@media (min-width: 1024px) {
+  .sidebar-rail {
+    position: fixed;
+    z-index: 50;
+    inset: 0 auto 0 0;
+    display: flex;
+    width: var(--sidebar-collapsed-width);
+    height: 100dvh;
+    flex-direction: column;
+    overflow: visible;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    padding: 0.875rem 0.5rem;
+    transition:
+      width 200ms cubic-bezier(0.4, 0, 0.2, 1),
+      background-color 200ms ease,
+      box-shadow 200ms ease;
+  }
+
+  /* Expanded (hover/focus/pinned): overlay with readable background. */
+  .sidebar-rail.sidebar-rail-expanded {
+    width: var(--sidebar-expanded-width);
+    border-right: 1px solid var(--color-champagne);
+    background: var(--color-elevated);
+    z-index: 60;
+    box-shadow: 12px 0 28px rgb(53 42 32 / 12%);
+  }
+
+  html.dark .sidebar-rail.sidebar-rail-expanded {
+    box-shadow: 12px 0 28px rgb(0 0 0 / 30%);
+  }
+
+  /* Guard: collapsed rail is always transparent — no panel look. */
+  .app-shell-root .sidebar-rail:not(.sidebar-rail-expanded) {
+    width: var(--sidebar-collapsed-width);
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  .sidebar-rail-expanded .sidebar-primary-navigation {
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-champagne) transparent;
+  }
+
+  /* Centre icons when collapsed; left-align when expanded. */
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-brand-row {
+    justify-content: center;
+    padding-left: 0;
+  }
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-brand-toggle {
+    justify-content: center;
+  }
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-nav-item,
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-profile-link,
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-signout {
+    justify-content: center;
+    gap: 0;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-search-wrap {
+    padding-inline: 0;
+  }
+  /* Collapsed search: visually hidden but icon remains as a landmark. */
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-search-input {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+    pointer-events: none;
+    /* Keep it out of the tab order when visually hidden */
+    tabindex: -1;
+  }
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-search-icon {
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    transform: translateX(-50%);
+  }
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-footer {
+    border-top-color: transparent;
+  }
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-nav-item-active,
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-nav-item-active:hover,
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-profile-link-active,
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-profile-link-active:hover {
+    background: transparent;
+  }
+  .sidebar-rail:not(.sidebar-rail-expanded) .sidebar-nav-item-active .sidebar-nav-icon {
+    color: var(--color-gold);
+  }
+
+  .mobile-app-header {
+    display: none;
+  }
+
+  /* ── Content offset ────────────────────────────────────────────────
+     Default: fixed at rail + breathing room (100px). No transition so
+     hover/focus never shifts content — CLS = 0.
+     Pinned: data-sidebar-pinned on .app-shell-root shifts content to the
+     full expanded width so the pinned panel doesn't cover content.
+     ───────────────────────────────────────────────────────────────── */
+  .app-shell-main {
+    margin-left: var(--sidebar-content-offset);
+    /* NO transition — hover/focus must not move the content at all. */
+  }
+
+  /* Only pinning shifts content; gives a smooth one-time transition. */
+  .app-shell-root[data-sidebar-pinned="true"] .app-shell-main {
+    margin-left: var(--sidebar-expanded-width);
+    transition: margin-left 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+/* Short screens: tighten the rail so every control stays reachable. */
+@media (max-height: 600px) and (min-width: 768px) {
+  .sidebar-brand-row { min-height: 40px; margin-bottom: 0.375rem; }
+  .sidebar-search-wrap { margin-bottom: 0.375rem; }
+  .sidebar-primary-navigation { gap: 0.25rem; }
+  .sidebar-nav-item,
+  .sidebar-signout { height: 38px; }
+  .sidebar-profile-link { height: 40px; }
+  .sidebar-footer { padding-top: 0.375rem; gap: 0.25rem; }
+}
+
+
+/* ── Breakpoint system ── */
+/* Mobile:  < 768px    */
+/* Tablet:  768–1023px */
+/* Desktop: ≥ 1024px   */
+
+html.dark .text-gold {
+  color: #c9953f;
+}
+
+html.dark .text-gold-dark {
+  color: #e0b15a;
 }
 
 @layer utilities {
   /* Tabular figures keep peso columns and prescription tables aligned. */
   .tabular {
     font-variant-numeric: tabular-nums;
+  }
+
+  /* Safe area padding utilities */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+  .px-safe {
+    padding-left: env(safe-area-inset-left, 0);
+    padding-right: env(safe-area-inset-right, 0);
   }
 
   /* Native select chevron, drawn in Espresso so it never looks like a default
@@ -103,6 +1037,32 @@
   }
 }
 
+@keyframes confirm-fade-in {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(8px);
+  }
+}
+
+@keyframes confirm-content-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.confirm-dialog {
+  animation: confirm-content-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -110,6 +1070,10 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .confirm-dialog {
+    animation: none !important;
   }
 }
 
@@ -128,11 +1092,14 @@
 }
 
 .login-brand {
-  min-height: auto;
+  display: none;
 }
 
 .login-shell {
-  display: grid;
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+  /* On mobile, login-form-panel scrolls naturally — no 100dvh clamp */
 }
 
 .login-iris {
@@ -146,36 +1113,158 @@
   z-index: 1;
 }
 
-.login-headline {
-  color: var(--text);
-  font-family: 'DM Serif Display', Georgia, serif;
-  font-weight: 400;
-  letter-spacing: -0.025em;
+.login-brand-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: min(100%, 35rem);
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2rem;
+  margin-inline: auto;
+  padding-block: 2rem;
 }
 
-.login-eyebrow,
+.login-brand-desktop-header,
+.login-brand-identity {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.login-brand-desktop-header {
+  position: relative;
+  z-index: 1;
+  justify-content: space-between;
+}
+
+.login-brand-logo {
+  width: 4rem;
+  height: 4rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  object-fit: contain;
+}
+
 .login-brand-tagline {
+  margin-top: 0.25rem;
   color: #795310;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  line-height: 1.5;
+}
+
+.login-brand-compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+  border-bottom: 1px solid var(--color-champagne);
+  background: color-mix(in srgb, var(--color-surface) 85%, transparent);
+  backdrop-filter: blur(8px);
+  padding: max(0.625rem, env(safe-area-inset-top)) 0.875rem 0.625rem;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.login-brand-compact .login-brand-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.login-brand-compact .login-brand-logo {
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 2rem;
+  border-radius: 50%;
+  object-fit: contain;
+}
+
+.login-brand-compact .font-display {
+  font-size: 0.9375rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.login-brand-compact .login-brand-tagline {
+  font-size: 0.55rem;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.login-headline {
+  margin: 1.5rem 0;
+  color: var(--text);
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.1;
+}
+
+.login-eyebrow {
+  margin: 0;
+  color: #8a5b10;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
 }
 
 .login-brand-description {
-  color: var(--text-muted);
+  max-width: 30rem;
+  margin: 0;
+  color: #443626;
+  font-size: 1.125rem;
+  line-height: 1.6;
 }
 
 .login-feature {
-  position: relative;
-  z-index: 1;
-  color: #594834;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #443626;
+  font-size: 1rem;
+  line-height: 1.45;
 }
 
 .login-feature-icon {
+  display: flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.625rem;
   border: 1px solid rgb(201 138 27 / 22%);
   background: rgb(255 253 249 / 68%);
   color: #795310;
 }
 
 .login-form-panel {
-  min-height: 100dvh;
+  /* min-height only applies on tablet+ where there is a side brand panel */
+  padding-top: max(1.25rem, env(safe-area-inset-top));
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+}
+
+.login-features {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .login-card {
@@ -288,53 +1377,254 @@
   color: var(--text-muted);
 }
 
+html.dark .login-page {
+  --bg-start: #171513;
+  --bg-end: #29251f;
+  --primary: #c9953f;
+  --primary-hover: #e0b15a;
+  --text: #f5f0e8;
+  --text-muted: #b9b0a4;
+  --border: #3a342c;
+  --focus-ring: rgb(201 149 63 / 24%);
+  background: linear-gradient(132deg, var(--bg-start), var(--bg-end));
+}
+
+html.dark .login-eyebrow,
+html.dark .login-staff-label,
+html.dark .login-forgot {
+  color: #e0b15a;
+}
+
+html.dark .login-brand-tagline {
+  color: #e0b15a;
+}
+
+html.dark .login-brand-description {
+  color: #f5f0e8;
+}
+
+html.dark .login-feature {
+  color: #b9b0a4;
+}
+
+html.dark .login-feature-icon,
+html.dark .login-staff-icon {
+  border-color: #3a342c;
+  background: #29251f;
+  color: #e0b15a;
+}
+
+html.dark .profile-theme-choice [role='radio']:not([aria-checked='true']) {
+  border-color: var(--color-champagne);
+  background-color: var(--color-surface);
+  color: var(--color-warmgray);
+}
+
+/* ─── Small tablet (600px–767px): single column, compact brand header ─── */
+@media (min-width: 600px) and (max-width: 767.98px) {
+  .login-brand-compact .login-brand-logo {
+    width: 2.25rem;
+    height: 2.25rem;
+    flex: 0 0 2.25rem;
+  }
+
+  .login-brand-compact .font-display {
+    font-size: 1rem;
+  }
+
+  .login-brand-compact .login-brand-tagline {
+    font-size: 0.5625rem;
+  }
+
+  .login-headline {
+    font-size: clamp(1.5rem, 4vw, 2rem);
+    margin: 1rem 0;
+  }
+
+  .login-form-panel {
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem;
+  }
+}
+
+/* ─── Tablet (768px–1199px): two-column layout ─── */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .login-shell {
+    display: grid;
+    grid-template-columns: minmax(0, min(42%, 340px)) minmax(0, 1fr);
+    min-height: 100dvh;
+    align-items: stretch;
+  }
+
+  .login-brand {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    min-height: 100%;
+    flex-direction: column;
+    overflow: hidden;
+    isolation: isolate;
+    border-right: 1px solid rgb(232 217 196 / 70%);
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-gold-light) 40%, transparent),
+      color-mix(in srgb, var(--color-ivory) 80%, transparent),
+      transparent
+    );
+    padding: 2rem clamp(1.25rem, 3vw, 2rem);
+  }
+
+  .login-brand-compact {
+    display: none;
+  }
+
+  .login-brand-copy {
+    text-align: left;
+  }
+
+  .login-brand-desktop-header {
+    display: none;
+  }
+
+  .login-brand-content {
+    padding-block: 1.25rem;
+  }
+
+  .login-brand-logo {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .login-brand-tagline {
+    font-size: 0.5625rem;
+  }
+
+  .login-headline {
+    font-size: clamp(1.5rem, 3vw, 2.25rem);
+    margin: 0.875rem 0;
+  }
+
+  .login-brand-description {
+    font-size: 0.9375rem;
+    max-width: 100%;
+  }
+
+  .login-feature {
+    font-size: 0.8125rem;
+  }
+
+  .login-feature-icon {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .login-form-panel {
+    min-height: 100dvh;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+  }
+}
+
+@media (min-width: 1200px) {
+  .login-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+    min-height: 100dvh;
+  }
+
+  .login-brand {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    min-height: 100dvh;
+    flex-direction: column;
+    overflow: hidden;
+    isolation: isolate;
+    border-right: 1px solid rgb(232 217 196 / 70%);
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-gold-light) 40%, transparent),
+      color-mix(in srgb, var(--color-ivory) 80%, transparent),
+      transparent
+    );
+    padding: 2.5rem clamp(2rem, 5vw, 4rem);
+  }
+
+  .login-brand-compact {
+    display: none;
+  }
+
+  .login-brand-copy {
+    text-align: left;
+  }
+
+  .login-form-panel {
+    min-height: 100dvh;
+  }
+}
+
+html.dark .login-card {
+  border-color: #3a342c;
+  background: #211e1a;
+  box-shadow: 0 28px 70px rgb(0 0 0 / 32%), 0 8px 22px rgb(0 0 0 / 20%);
+}
+
+html.dark .login-page .login-input {
+  border-color: var(--border);
+  background: #211e1a;
+  color: var(--text);
+}
+
+html.dark .login-page .login-input::placeholder {
+  color: #8e867b;
+}
+
+html.dark .login-remember,
+html.dark .login-notice {
+  color: #b9b0a4;
+}
+
+html.dark .login-checkbox {
+  border-color: #8e867b;
+  background: #211e1a;
+}
+
+html.dark .login-checkbox:checked {
+  border-color: #e0b15a;
+  background: #e0b15a;
+}
+
+html.dark .login-submit {
+  background: linear-gradient(110deg, #e0b15a, #c9953f);
+  color: #241b0e;
+}
+
+.login-card-shake {
+  animation: login-shake 420ms ease-in-out both;
+}
+
+@keyframes login-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-5px); }
+  40%, 80% { transform: translateX(5px); }
+}
+
 @keyframes login-fade-up {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-@media (min-width: 768px) {
-  .login-shell {
-    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-  }
+.login-card-content {
+  padding: 1.5rem 1.25rem;
+}
 
-  .login-brand {
-    min-height: 100dvh;
-    padding: 2.5rem 2rem;
-  }
-
-  .login-brand-copy {
-    width: 100%;
-    margin: auto;
-    text-align: center;
-  }
-
-  .login-features {
-    max-width: 31rem;
-    margin: 0 auto;
-  }
-
+@media (min-width: 640px) {
   .login-form-panel {
-    padding: 2.5rem;
+    padding: 2.5rem 1.5rem;
   }
 
   .login-card-content {
     padding: 2.25rem;
-  }
-}
-
-@media (max-width: 767px) {
-  .login-iris {
-    display: none;
-  }
-
-  .login-brand {
-    border-right: 0;
-    padding-bottom: 0;
-  }
-
-  .login-form-panel {
-    min-height: auto;
   }
 }
 
@@ -370,4 +1660,228 @@
 .monthly-breakdown-card > div {
   max-height: min(72vh, 44rem);
   overflow: auto;
+}
+
+/* Print styles — hide chrome, show content */
+@media print {
+  .sidebar-rail,
+  .mobile-app-header,
+  .sidebar-backdrop,
+  button,
+  .button,
+  [role="button"],
+  .pagination,
+  .filter-chips,
+  .page-header-action,
+  .card-header-action,
+  .sheet,
+  .dialog,
+  .confirm-dialog,
+  .result-dialog,
+  .custom-cursor {
+    display: none !important;
+  }
+
+  .app-shell-main {
+    margin-left: 0 !important;
+  }
+
+  .app-shell-main > div {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  .card {
+    box-shadow: none !important;
+    border: 1px solid var(--color-champagne) !important;
+    break-inside: avoid;
+  }
+
+  .table-wrapper,
+  .table-container {
+    overflow: visible !important;
+  }
+
+  table {
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tbody {
+    display: table-row-group;
+  }
+
+  a {
+    text-decoration: none;
+    color: var(--color-espresso) !important;
+  }
+}
+
+/* Landscape phone & short screens (max-height: 500px) */
+@media (max-height: 500px) and (orientation: landscape) {
+  :root {
+    --space-4: clamp(0.75rem, 0.6rem + 0.75vw, 1rem);
+    --space-5: clamp(1rem, 0.8rem + 1vw, 1.25rem);
+    --space-6: clamp(1.25rem, 1rem + 1.25vw, 1.5rem);
+  }
+
+  .mobile-app-header {
+    padding: 0.5rem 1rem;
+  }
+
+  .app-shell-main > div {
+    padding-top: 2rem;
+    padding-bottom: calc(2rem + env(safe-area-inset-bottom));
+  }
+
+  .card {
+    padding: 1rem;
+  }
+
+  .dialog,
+  .confirm-dialog,
+  .result-dialog,
+  .sheet {
+    max-height: 90dvh;
+    overflow-y: auto;
+  }
+
+  .sheet {
+    max-width: 100%;
+    border-radius: var(--radius-card) var(--radius-card) 0 0;
+  }
+}
+
+/* Disable AnimatedBackground on mobile/coarse pointer to save battery */
+@media (pointer: coarse), (max-width: 639px) {
+  .animated-background {
+    display: none !important;
+  }
+}
+
+/* High zoom / large system font support */
+@media (min-resolution: 2dppx) {
+  html {
+    font-size: 100%;
+  }
+}
+
+/* Ensure touch targets are at least 44px */
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  a,
+  input,
+  select,
+  textarea,
+  .button,
+  .sidebar-nav-item,
+  .sidebar-profile-link,
+  .sidebar-signout,
+  .sidebar-brand-toggle,
+  .sidebar-close-toggle,
+  .sidebar-pin-toggle,
+  .filter-chip,
+  .pagination button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Focus visible for keyboard navigation */
+@media (prefers-reduced-motion: no-preference) {
+  :focus-visible {
+    outline: 2px solid var(--color-gold-dark);
+    outline-offset: 2px;
+  }
+}
+
+/* Mobile bottom sheets for dialogs and sheets (< 640px) */
+@media (max-width: 639px) {
+  .confirm-dialog,
+  .result-dialog,
+  .dialog-content,
+  .sheet-content {
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    top: auto !important;
+    max-width: 100% !important;
+    max-height: 90dvh !important;
+    border-radius: var(--radius-card) var(--radius-card) 0 0 !important;
+    border-left: none !important;
+    border-top: 1px solid var(--color-champagne) !important;
+    transform: none !important;
+    margin: 0 !important;
+    animation: slide-up 250ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  .confirm-dialog > div,
+  .result-dialog > section,
+  .dialog-content > div,
+  .sheet-content > div {
+    max-height: 90dvh !important;
+    overflow-y: auto !important;
+  }
+
+  .sheet-content {
+    inset-y-0: initial !important;
+    right-0: initial !important;
+    inset-x-0: initial !important;
+    bottom-0: initial !important;
+  }
+
+  .dialog-primitive-overlay,
+  .result-dialog-backdrop {
+    animation: fade-in 200ms ease-out !important;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Right-hand drawers (>= 640px) slide in from the right. Below 640px the
+   bottom-sheet block above takes over. Exit is instant because Radix unmounts
+   the panel on close. */
+@media (min-width: 640px) and (prefers-reduced-motion: no-preference) {
+  .sheet-content[data-state='open'] {
+    animation: sheet-in-right 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+.sheet-overlay[data-state='open'] {
+  animation: fade-in 180ms ease-out;
+}
+
+@keyframes sheet-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }

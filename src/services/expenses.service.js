@@ -2,6 +2,8 @@ import { supabase, unwrap } from '@/lib/supabase'
 import { toAppError } from '@/utils/errors'
 import { toAmount, toDateKey } from '@/utils/dates'
 
+const EXPORT_BATCH_SIZE = 1000
+
 export async function createExpense(input) {
   const amount = toAmount(input.amount)
   if (!(amount > 0)) {
@@ -24,10 +26,48 @@ export async function createExpense(input) {
 
 export async function listExpenses(from, to) {
   try {
-    let query = supabase.from('expenses').select('*')
+    let query = supabase
+      .from('expenses')
+      .select('id, expense_date, category, amount, description, created_at')
     if (from) query = query.gte('expense_date', from)
     if (to) query = query.lte('expense_date', to)
     return unwrap(await query.order('expense_date', { ascending: false }))
+  } catch (caught) {
+    throw toAppError(caught, 'loadExpenses')
+  }
+}
+
+export async function getEarliestExpenseDate() {
+  try {
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('expense_date')
+      .order('expense_date', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    if (error) throw error
+    return data?.expense_date ?? null
+  } catch (caught) {
+    throw toAppError(caught, 'loadExpenses')
+  }
+}
+
+export async function listAllExpenses(from, to) {
+  try {
+    const rows = []
+    for (let offset = 0; ; offset += EXPORT_BATCH_SIZE) {
+      let query = supabase.from('expenses').select('*')
+      if (from) query = query.gte('expense_date', from)
+      if (to) query = query.lte('expense_date', to)
+
+      const batch = unwrap(
+        await query
+          .order('expense_date', { ascending: false })
+          .range(offset, offset + EXPORT_BATCH_SIZE - 1),
+      )
+      rows.push(...batch)
+      if (batch.length < EXPORT_BATCH_SIZE) return rows
+    }
   } catch (caught) {
     throw toAppError(caught, 'loadExpenses')
   }

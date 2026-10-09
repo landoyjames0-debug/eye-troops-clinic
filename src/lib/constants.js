@@ -1,10 +1,19 @@
 export const APP_NAME = 'Eye TroOps'
 export const APP_SUBTITLE = 'OPTICAL CLINIC'
+export const CURRENCY_CODE = 'PHP'
 
 /** Official clinic artwork, served from /public. */
 export const LOGO_PATH = '/eye-troops-logo.png'
 
 export const ORDER_NUMBER_PREFIX = 'ET-'
+
+export const ORDER_STATUS = Object.freeze({
+  ORDERED: 'ORDERED',
+  IN_LAB: 'IN_LAB',
+  READY_FOR_PICKUP: 'READY_FOR_PICKUP',
+  CLAIMED: 'CLAIMED',
+  CANCELLED: 'CANCELLED',
+})
 
 /**
  * Order lifecycle. These strings are the values stored in the database's
@@ -15,13 +24,13 @@ export const ORDER_NUMBER_PREFIX = 'ET-'
  * offered as a filter instead of a step.
  */
 export const ORDER_STATUS_META = [
-  { value: 'ORDERED', label: 'Ordered', description: 'Order placed, not yet sent to the lab' },
-  { value: 'IN_LAB', label: 'In Lab', description: 'Being fabricated' },
-  { value: 'READY_FOR_PICKUP', label: 'Ready for Pickup', description: 'Finished and waiting for the patient' },
-  { value: 'CLAIMED', label: 'Claimed', description: 'Collected by the patient' },
+  { value: ORDER_STATUS.ORDERED, label: 'Ordered', description: 'Order placed, not yet sent to the lab' },
+  { value: ORDER_STATUS.IN_LAB, label: 'In Lab', description: 'Being fabricated' },
+  { value: ORDER_STATUS.READY_FOR_PICKUP, label: 'Ready for Pickup', description: 'Finished and waiting for the patient' },
+  { value: ORDER_STATUS.CLAIMED, label: 'Claimed', description: 'Collected by the patient' },
 ]
 
-export const CANCELLED_STATUS = { value: 'CANCELLED', label: 'Cancelled', description: 'Cancelled and kept for reference' }
+export const CANCELLED_STATUS = { value: ORDER_STATUS.CANCELLED, label: 'Cancelled', description: 'Cancelled and kept for reference' }
 
 export const ORDER_STATUSES = ORDER_STATUS_META.map((meta) => meta.value)
 
@@ -57,6 +66,21 @@ export const LENS_TYPES = [
   'Not applicable',
 ]
 
+/** Prescription lens designs for a pair of glasses. */
+export const LENS_TYPE_OPTIONS = [
+  'Single Vision',
+  'Bifocal',
+  'Progressive',
+  'Not applicable',
+]
+
+/** Coatings / treatments that can be added to a glasses lens. */
+export const LENS_COATING_OPTIONS = [
+  'Photochromic',
+  'Blue-light Filter',
+  'Not applicable',
+]
+
 export const PAYMENT_METHODS = ['Cash', 'GCash', 'Maya', 'Bank Transfer', 'Other']
 
 /** Default rows per page for roster tables (Patients, Orders, Sales & Expenses). */
@@ -70,8 +94,9 @@ export const TABLE_PAGE_SIZE = 4
 export function describeOrderItems(items) {
   return items
     .map((item) => {
-      const parts = [item.type]
+      const parts = [item.name?.trim() || item.type]
       if (item.lensType && item.lensType !== 'Not applicable') parts.push(item.lensType)
+      if (item.lensOption && item.lensOption !== 'Not applicable') parts.push(item.lensOption)
       return `${parts.join(' · ')} (${item.quantity} × ₱${Number(item.unitPrice).toFixed(2)})`
     })
     .join(', ')

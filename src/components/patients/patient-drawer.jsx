@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
-import { ClipboardPlus, NotebookPen } from 'lucide-react'
+import { Ban, CalendarDays, ClipboardPlus, Clock3, Eye, NotebookPen } from 'lucide-react'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
-import { StatusBadge } from '@/components/ui/badge'
+import { Badge, StatusBadge } from '@/components/ui/badge'
 import { EmptyState, Skeleton } from '@/components/ui/feedback'
 import { PrescriptionTable } from '@/components/visits/prescription-table'
 import { useAsync } from '@/hooks/use-async'
@@ -19,7 +19,7 @@ function Field({ label, children }) {
   return (
     <div className="min-w-0 border-b border-champagne/70 py-3">
       <dt className="text-[11px] font-semibold tracking-wider text-warmgray uppercase">{label}</dt>
-      <dd className="mt-1 text-sm break-words text-espresso">{children}</dd>
+      <dd className="mt-1 text-sm wrap-break-word text-espresso">{children}</dd>
     </div>
   )
 }
@@ -49,7 +49,7 @@ function TimelineItem({ date, meta, status, children, action }) {
   return (
     <li className="relative border-l border-champagne pb-7 pl-6 last:pb-0">
       <span
-        className="absolute -left-[5px] top-1.5 size-2.5 rounded-full border-2 border-surface bg-gold"
+        className="absolute -left-1.25 top-1.5 size-2.5 rounded-full border-2 border-surface bg-gold"
         aria-hidden="true"
       />
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
@@ -62,7 +62,7 @@ function TimelineItem({ date, meta, status, children, action }) {
 }
 
 /** Patient details drawer — opened from the Patients table row or View button. */
-export function PatientDrawer({ patientId, cpLabel, onClose }) {
+export function PatientDrawer({ patientId, cpLabel, onClose, onSelectOrder, onCancelOrder }) {
   const detail = useAsync(
     () => (patientId ? getPatientDetail(patientId) : Promise.resolve(null)),
     [patientId],
@@ -78,6 +78,7 @@ export function PatientDrawer({ patientId, cpLabel, onClose }) {
   const patient = detail.data?.patient
   const orders = detail.data?.orders ?? []
   const visits = detail.data?.visits ?? []
+  const nextFollowUp = detail.data?.nextFollowUp ?? null
   const balance = detail.data?.balance ?? 0
 
   return (
@@ -106,7 +107,7 @@ export function PatientDrawer({ patientId, cpLabel, onClose }) {
         ) : detail.data ? (
           <div className="space-y-8">
             {/* Balance sits at the top because it is the number staff look for. */}
-            <div className="rounded-[var(--radius-control)] border border-champagne bg-ivory px-4 py-3.5">
+            <div className="rounded-control border border-champagne bg-ivory px-4 py-3.5">
               <p className="text-[11px] font-semibold tracking-wider text-warmgray uppercase">
                 Outstanding balance
               </p>
@@ -131,6 +132,33 @@ export function PatientDrawer({ patientId, cpLabel, onClose }) {
               </dl>
             </section>
 
+            {nextFollowUp && (
+              <section className="rounded-control border border-gold/60 bg-gold-light/30 px-4 py-3.5">
+                <SectionLabel>Next follow-up</SectionLabel>
+                <div className="mt-2 flex items-start gap-3">
+                  <div className="mt-0.5 rounded-lg bg-surface p-2 text-gold-dark">
+                    <CalendarDays className="size-4" strokeWidth={1.8} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-display text-lg font-semibold text-espresso">
+                      {formatDate(nextFollowUp.appointment_date)}
+                    </p>
+                    <p className="mt-1 flex items-center gap-1.5 text-[12px] text-warmgray">
+                      <Clock3 className="size-3.5" strokeWidth={1.8} />
+                      {formatTime(
+                        new Date(`${nextFollowUp.appointment_date}T${nextFollowUp.appointment_time}`),
+                      )}{' '}
+                      • {nextFollowUp.appointment_type}
+                    </p>
+                    <p className="mt-1 text-[12px] text-warmgray">{nextFollowUp.status}</p>
+                    {nextFollowUp.notes && (
+                      <p className="mt-2 text-[13px] leading-relaxed text-espresso">{nextFollowUp.notes}</p>
+                    )}
+                  </div>
+                </div>
+              </section>
+            )}
+
             <section>
               <SectionLabel>Visit &amp; order history</SectionLabel>
 
@@ -147,7 +175,38 @@ export function PatientDrawer({ patientId, cpLabel, onClose }) {
                     <TimelineItem
                       key={order.id}
                       date={`${order.order_number} · ${formatDateShort(order.order_date)}`}
-                      status={order.status}
+                      action={(
+                        <div className="flex flex-wrap items-center justify-end gap-1.5">
+                          <StatusBadge status={order.status} />
+                          {Number(order.total_amount) > 0 && order.balance <= 0 && (
+                            <Badge variant="success">Completed</Badge>
+                          )}
+                          {onSelectOrder && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="border-gold/60 font-semibold text-gold-dark"
+                              onClick={() => onSelectOrder(order)}
+                            >
+                              <Eye className="size-4" aria-hidden="true" />
+                              View order
+                            </Button>
+                          )}
+                          {onCancelOrder && !['CLAIMED', 'CANCELLED'].includes(order.status) && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="border-error/50 text-error hover:bg-error/5"
+                              onClick={() => onCancelOrder(order)}
+                            >
+                              <Ban className="size-4" aria-hidden="true" />
+                              Cancel order
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     >
                       <dl className="mt-2.5 grid grid-cols-3 gap-3">
                         <Summary label="Total" value={formatPeso(order.total_amount)} />
@@ -158,6 +217,29 @@ export function PatientDrawer({ patientId, cpLabel, onClose }) {
                           tone={order.balance > 0 ? 'due' : 'default'}
                         />
                       </dl>
+                      <div className="mt-3">
+                        <SectionLabel>Payments for {order.order_number}</SectionLabel>
+                        {order.payments.length > 0 ? (
+                          <ul className="mt-2 divide-y divide-champagne/60 rounded-control border border-champagne">
+                            {order.payments.map((payment) => (
+                              <li key={payment.id} className="flex items-center justify-between gap-3 px-3 py-2 text-[12px]">
+                                <span className="min-w-0">
+                                  <span className="block text-warmgray">{formatDateShort(payment.payment_date)}</span>
+                                  <span className="block truncate text-espresso">{payment.notes || 'Payment'}</span>
+                                </span>
+                                <span className="shrink-0 text-right">
+                                  <span className="tabular block font-semibold text-espresso">{formatPeso(payment.amount)}</span>
+                                  {payment.status !== 'COMPLETED' && (
+                                    <span className="text-[10px] text-warmgray">{payment.status}</span>
+                                  )}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="mt-1 text-[12px] text-warmgray">No payments recorded.</p>
+                        )}
+                      </div>
                     </TimelineItem>
                   ))}
 

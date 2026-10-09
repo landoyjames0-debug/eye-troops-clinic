@@ -33,9 +33,9 @@ export function ChoiceGroup({
 
   const layoutClass =
     layout === 'grid-2'
-      ? 'grid grid-cols-2 gap-2'
+      ? 'grid grid-cols-1 gap-2 sm:grid-cols-2'
       : layout === 'grid-3'
-        ? 'grid grid-cols-2 gap-2 sm:grid-cols-3'
+        ? 'grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3'
         : layout === 'scroll'
           ? 'flex flex-nowrap gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
           : 'flex flex-wrap gap-2'
@@ -70,7 +70,7 @@ export function ChoiceGroup({
               chipClass,
               selected
                 ? 'border-gold bg-gold-light text-espresso ring-1 ring-gold/25'
-                : 'border-champagne bg-white text-warmgray hover:border-gold/45 hover:bg-ivory hover:text-espresso',
+                : 'border-champagne bg-surface text-warmgray hover:border-gold/45 hover:bg-ivory hover:text-espresso',
             )}
           >
             {Icon && (
@@ -97,7 +97,7 @@ export function ChoiceGroup({
         {label && (
           <span
             id={`${id}-label`}
-            className="w-[4.25rem] shrink-0 text-[11px] font-semibold tracking-wide text-warmgray uppercase"
+            className="w-17 shrink-0 text-[11px] font-semibold tracking-wide text-warmgray uppercase"
           >
             {label}
           </span>

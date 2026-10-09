@@ -14,16 +14,16 @@ export const SheetClose = DialogPrimitive.Close
 export function SheetContent({ title, description, children, footer, className }) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-espresso/40 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+      <DialogPrimitive.Overlay className="sheet-overlay fixed inset-0 z-50 bg-espresso/40" />
       <DialogPrimitive.Content
         className={cn(
-          'fixed inset-y-0 right-0 z-50 flex w-full max-w-[520px] flex-col',
+          'fixed inset-y-0 right-0 z-50 flex w-full max-w-full sm:max-w-130 flex-col sheet-content',
           'border-l border-champagne bg-surface shadow-pop',
           'data-[state=open]:animate-in data-[state=open]:slide-in-from-right',
           className,
         )}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-champagne px-6 py-4">
+        <header className="flex items-start justify-between gap-4 border-b border-champagne px-4 py-3.5 sm:px-6 sm:py-4">
           <div className="min-w-0">
             <DialogPrimitive.Title className="font-display text-lg font-semibold tracking-tight text-espresso">
               {title}
@@ -35,17 +35,17 @@ export function SheetContent({ title, description, children, footer, className }
             )}
           </div>
           <DialogPrimitive.Close
-            className="-mt-1 -mr-1.5 rounded-[var(--radius-control)] p-2 text-warmgray transition-colors hover:bg-ivory hover:text-espresso"
+            className="-mt-1 -mr-1.5 rounded-control p-2 text-warmgray transition-colors hover:bg-ivory hover:text-espresso"
             aria-label="Close"
           >
             <X className="size-4" aria-hidden="true" />
           </DialogPrimitive.Close>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
+        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">{children}</div>
 
         {footer && (
-          <footer className="flex flex-wrap justify-end gap-2.5 border-t border-champagne bg-ivory/70 px-6 py-3.5">
+          <footer className="flex flex-wrap justify-end gap-2.5 border-t border-champagne bg-ivory/70 px-4 py-3 sm:px-6 sm:py-3.5">
             {footer}
           </footer>
         )}

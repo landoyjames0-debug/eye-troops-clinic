@@ -18,7 +18,7 @@ export const buttonVariants = cva(
         // at ~2.9:1, below WCAG AA for body text, so the hover state moves to
         // Dark Antique Gold (#8F672C) for a legible, higher-contrast rest state.
         primary: 'bg-gold text-white shadow-card hover:bg-gold-dark',
-        outline: 'border border-champagne bg-white text-espresso hover:border-gold/45 hover:bg-gold-light/60',
+        outline: 'border border-champagne bg-surface text-espresso hover:border-gold/45 hover:bg-gold-light/60',
         subtle: 'bg-gold-light text-espresso hover:bg-champagne',
         ghost: 'text-warmgray hover:bg-gold-light/60 hover:text-espresso',
         danger: 'bg-error text-white shadow-card hover:bg-error/90',

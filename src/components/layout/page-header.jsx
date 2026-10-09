@@ -1,10 +1,12 @@
 import { cn } from '@/lib/utils'
+import { Link } from 'react-router-dom'
+import { ArrowUpRight } from 'lucide-react'
 
 export function PageHeader({ title, description, action }) {
   return (
     <div className="mb-7 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
       <div className="min-w-0">
-        <h1 className="font-display text-[28px] leading-[1.15] font-bold tracking-tight text-espresso sm:text-[30px]">
+        <h1 className="font-display text-[clamp(1.5rem,2.5vw+0.5rem,1.875rem)] leading-[1.15] font-bold tracking-tight text-espresso">
           {title}
         </h1>
         {description && <p className="mt-1.5 text-sm text-warmgray">{description}</p>}
@@ -30,6 +32,9 @@ export function StatTile({
   tone = 'neutral',
   description,
   className,
+  to,
+  ariaLabel,
+  ...props
 }) {
   const toneStyles = {
     neutral: {
@@ -76,16 +81,21 @@ export function StatTile({
 
   const styles = toneStyles[tone] || toneStyles.neutral
 
+  const Tile = to ? Link : 'div'
+
   return (
-    <div
+    <Tile
+      {...props}
+      {...(to ? { to, 'aria-label': ariaLabel ?? `${label}: ${value}` } : {})}
       className={cn(
-        'relative overflow-hidden rounded-[var(--radius-card)] border bg-surface p-5 shadow-card min-h-[150px] transition-all duration-200 hover:shadow-raised',
+        'relative overflow-hidden rounded-card border bg-surface p-5 shadow-card min-h-37.5 transition-all duration-200 hover:shadow-raised',
         styles.borderColor,
+        to && 'group cursor-pointer hover:-translate-y-0.5 hover:border-gold/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
         className,
       )}
     >
       {/* Colored accent bar at top */}
-      <div className={cn('absolute inset-x-0 top-0 h-[3px]', styles.accentBar)} />
+      <div className={cn('absolute inset-x-0 top-0 h-0.75', styles.accentBar)} />
 
       <div className="flex items-start justify-between gap-2.5">
         <div className="min-w-0 flex-1">
@@ -99,15 +109,15 @@ export function StatTile({
           </p>
           <p
             className={cn(
-              'tabular font-display leading-none font-bold tracking-tight whitespace-nowrap',
+              'tabular font-display leading-none font-bold tracking-tight truncate max-w-full',
               styles.valueColor,
-              'text-[26px] sm:text-[28px] lg:text-[30px]',
+              'text-[clamp(1.5rem,2.2vw+0.5rem,1.875rem)]',
             )}
           >
             {value}
           </p>
           {description && (
-            <p className={cn('mt-1.5 text-[11px] leading-relaxed', styles.descColor)}>
+            <p className={cn('mt-1.5 text-[11px] leading-relaxed', styles.descColor, to && 'pr-5')}>
               {description}
             </p>
           )}
@@ -125,7 +135,8 @@ export function StatTile({
           </span>
         )}
       </div>
-    </div>
+      {to && <ArrowUpRight className="absolute right-4 bottom-4 size-4 text-gold-dark opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 motion-reduce:transition-none" aria-hidden="true" />}
+    </Tile>
   )
 }
 

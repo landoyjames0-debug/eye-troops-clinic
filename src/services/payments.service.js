@@ -3,6 +3,9 @@ import { supabase, unwrap } from '@/lib/supabase'
 import { toAppError } from '@/utils/errors'
 import { toAmount, toDateKey } from '@/utils/dates'
 
+const EXPORT_BATCH_SIZE = 1000
+const LOOKUP_BATCH_SIZE = 500
+
 /**
  * Every payment is an immutable record. Nothing here updates or deletes an
  * existing row — corrections are made by adding a new entry.
@@ -21,16 +24,20 @@ export async function createPayment(input) {
   if (!(amount > 0)) {
     throw toAppError(new Error('amount must be positive'), 'savePayment')
   }
+  if (!input.idempotency_key) {
+    throw toAppError(new Error('payment idempotency key is required'), 'savePayment')
+  }
 
   const payload = {
-    order_id: input.order_id,
-    amount,
-    payment_date: input.payment_date,
-    notes: input.notes.trim() || null,
+    p_order_id: input.order_id,
+    p_amount: amount,
+    p_payment_date: input.payment_date,
+    p_notes: input.notes?.trim() || null,
+    p_idempotency_key: input.idempotency_key,
   }
 
   try {
-    return unwrap(await supabase.from('payments').insert(payload).select('*').single())
+    return unwrap(await supabase.rpc('record_order_payment', payload).single())
   } catch (caught) {
     throw toAppError(caught, 'savePayment')
   }
@@ -38,10 +45,87 @@ export async function createPayment(input) {
 
 export async function listPayments(from, to) {
   try {
-    let query = supabase.from('payments').select('*').eq('status', 'COMPLETED')
+    let query = supabase
+      .from('payments')
+      .select('id, order_id, amount, payment_date, notes, status, voided_at, created_at')
+      .eq('status', 'COMPLETED')
     if (from) query = query.gte('payment_date', from)
     if (to) query = query.lte('payment_date', to)
     return unwrap(await query.order('payment_date', { ascending: false }))
+  } catch (caught) {
+    throw toAppError(caught, 'loadPayments')
+  }
+}
+
+export async function getEarliestPaymentDate() {
+  try {
+    const { data, error } = await supabase
+      .from('payments')
+      .select('payment_date')
+      .eq('status', 'COMPLETED')
+      .order('payment_date', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    if (error) throw error
+    return data?.payment_date ?? null
+  } catch (caught) {
+    throw toAppError(caught, 'loadPayments')
+  }
+}
+
+export async function listPaymentExportRows(from, to) {
+  try {
+    const payments = []
+    for (let offset = 0; ; offset += EXPORT_BATCH_SIZE) {
+      let query = supabase.from('payments').select('*').eq('status', 'COMPLETED')
+      if (from) query = query.gte('payment_date', from)
+      if (to) query = query.lte('payment_date', to)
+
+      const batch = unwrap(
+        await query
+          .order('payment_date', { ascending: false })
+          .range(offset, offset + EXPORT_BATCH_SIZE - 1),
+      )
+      payments.push(...batch)
+      if (batch.length < EXPORT_BATCH_SIZE) break
+    }
+
+    const orderIds = [...new Set(payments.map((payment) => payment.order_id))]
+    const orders = []
+    for (let offset = 0; offset < orderIds.length; offset += LOOKUP_BATCH_SIZE) {
+      const ids = orderIds.slice(offset, offset + LOOKUP_BATCH_SIZE)
+      orders.push(
+        ...unwrap(
+          await supabase
+            .from('orders')
+            .select('id, order_number, description, patient_id')
+            .in('id', ids),
+        ),
+      )
+    }
+
+    const patientIds = [...new Set(orders.map((order) => order.patient_id))]
+    const patients = []
+    for (let offset = 0; offset < patientIds.length; offset += LOOKUP_BATCH_SIZE) {
+      const ids = patientIds.slice(offset, offset + LOOKUP_BATCH_SIZE)
+      patients.push(
+        ...unwrap(
+          await supabase.from('patients').select('id, full_name').in('id', ids),
+        ),
+      )
+    }
+
+    const orderById = new Map(orders.map((order) => [order.id, order]))
+    const patientById = new Map(patients.map((patient) => [patient.id, patient]))
+    return payments.map((payment) => {
+      const order = orderById.get(payment.order_id)
+      return {
+        ...payment,
+        customer: patientById.get(order?.patient_id)?.full_name ?? '',
+        item_type: 'Order payment',
+        description: order?.description ?? '',
+      }
+    })
   } catch (caught) {
     throw toAppError(caught, 'loadPayments')
   }

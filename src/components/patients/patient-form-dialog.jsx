@@ -1,11 +1,13 @@
 import { useState, useMemo } from 'react'
-import { toast } from 'sonner'
 import { Archive, UserRoundPlus } from 'lucide-react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea } from '@/components/ui/input'
 import { ErrorNote } from '@/components/ui/feedback'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { useConfirm } from '@/hooks/use-confirm'
+import { useResultDialog } from '@/hooks/use-result-dialog'
+import { useSupabaseHealth } from '@/hooks/use-supabase-health'
 import {
   archivePatient,
   createPatient,
@@ -39,6 +41,9 @@ function formEquals(a, b) {
  */
 export function PatientFormDialog({ open, patient = null, onClose, onSaved }) {
   const isEdit = Boolean(patient)
+  const confirm = useConfirm()
+  const resultDialog = useResultDialog()
+  const { isOnline } = useSupabaseHealth()
   const [initialForm] = useState(() => blankForm(patient))
   const [form, setForm] = useState(() => blankForm(patient))
   const [errors, setErrors] = useState({})
@@ -55,9 +60,15 @@ export function PatientFormDialog({ open, patient = null, onClose, onSaved }) {
   const handleClose = () => {
     if (saving || archiving) return
     if (hasUnsavedChanges) {
-      // The ConfirmDialog will handle the unsaved changes confirmation
-      // For now, we'll just prevent closing if there are unsaved changes
-      // A more sophisticated implementation could use a nested ConfirmDialog
+      void confirm({
+        title: 'Discard unsaved changes?',
+        message: `Leave this ${isEdit ? 'patient update' : 'new patient'} without saving?`,
+        confirmLabel: 'Discard changes',
+        cancelLabel: 'Keep editing',
+        variant: 'default',
+        onConfirm: onClose,
+        errorMessage: 'Could not close the form. Please try again.',
+      })
       return
     }
     onClose()
@@ -68,16 +79,26 @@ export function PatientFormDialog({ open, patient = null, onClose, onSaved }) {
     try {
       if (isEdit) {
         await updatePatient(patient.id, form)
-        toast.success('Patient updated')
+        resultDialog.success({
+          title: 'Patient updated',
+          message: `${form.full_name.trim()} was updated successfully.`,
+        })
       } else {
         await createPatient(form)
-        toast.success('Patient added')
+        resultDialog.success({
+          title: 'Patient added',
+          message: `${form.full_name.trim()} was added successfully.`,
+        })
       }
       onSaved()
       onClose()
     } catch (caught) {
-      toast.error('Could not save the patient', {
-        description: caught instanceof AppError ? caught.message : 'Please try again.',
+      resultDialog.error({
+        title: 'Could not save the patient',
+        message: caught instanceof AppError ? caught.message : 'Please check your connection and try again.',
+        details: caught?.cause?.message ?? caught?.message,
+        retryLabel: 'Try again',
+        onRetry: persist,
       })
     } finally {
       setSaving(false)
@@ -86,6 +107,7 @@ export function PatientFormDialog({ open, patient = null, onClose, onSaved }) {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+    if (!isOnline) return
 
     const nextErrors = {}
     if (!form.full_name.trim()) nextErrors.full_name = 'Patient name is required.'
@@ -105,24 +127,52 @@ export function PatientFormDialog({ open, patient = null, onClose, onSaved }) {
       }
     }
 
-    await persist()
+    void confirm({
+      title: isEdit ? 'Save patient changes?' : 'Add this patient?',
+      message: isEdit
+        ? `Update ${form.full_name.trim()} and save the corrected contact details?`
+        : `Create a new patient record for ${form.full_name.trim()}?`,
+      confirmLabel: isEdit ? 'Save changes' : 'Add patient',
+      variant: 'default',
+      onConfirm: persist,
+      errorMessage: 'Could not save the patient. Please try again.',
+    })
   }
 
-  const handleArchive = async () => {
+  const archivePatientAction = async () => {
     setArchiving(true)
     try {
       await archivePatient(patient.id)
-      toast.success('Patient archived')
+      resultDialog.success({
+        title: 'Patient archived',
+        message: `${patient?.full_name ?? 'The patient'} was archived successfully.`,
+      })
       onSaved()
       setConfirmArchive(false)
       onClose()
     } catch (caught) {
-      toast.error('Could not archive the patient', {
-        description: caught instanceof AppError ? caught.message : 'Please try again.',
+      resultDialog.error({
+        title: 'Could not archive the patient',
+        message: caught instanceof AppError ? caught.message : 'Please check your connection and try again.',
+        details: caught?.cause?.message ?? caught?.message,
+        retryLabel: 'Try again',
+        onRetry: archivePatientAction,
       })
     } finally {
       setArchiving(false)
     }
+  }
+
+  const handleArchive = async () => {
+    void confirm({
+      title: 'Archive patient?',
+      message: `${patient?.full_name ?? 'This patient'} will be removed from the active roster. Their history remains on record.`,
+      confirmLabel: 'Archive patient',
+      cancelLabel: 'Keep patient',
+      variant: 'danger',
+      onConfirm: archivePatientAction,
+      errorMessage: 'Could not archive the patient. Please try again.',
+    })
   }
 
   if (!open) return null
@@ -151,6 +201,7 @@ export function PatientFormDialog({ open, patient = null, onClose, onSaved }) {
                 form="patient-form"
                 loading={saving}
                 loadingText="Saving"
+                disabled={!isOnline}
               >
                 {!isEdit && <UserRoundPlus className="size-4" aria-hidden="true" />}
                 {duplicate ? 'Save Anyway' : isEdit ? 'Save Changes' : 'Add Patient'}
@@ -209,7 +260,7 @@ export function PatientFormDialog({ open, patient = null, onClose, onSaved }) {
           </form>
 
           {isEdit && (
-            <div className="mt-5 flex items-start justify-between gap-4 rounded-[var(--radius-control)] border border-champagne bg-ivory px-4 py-3.5">
+            <div className="mt-5 flex items-start justify-between gap-4 rounded-control border border-champagne bg-ivory px-4 py-3.5">
               <div className="min-w-0">
                 <p className="text-[13px] font-medium text-espresso">Archive Patient</p>
                 <p className="mt-0.5 text-[12px] text-warmgray">
@@ -221,6 +272,7 @@ export function PatientFormDialog({ open, patient = null, onClose, onSaved }) {
                 variant="outline"
                 size="sm"
                 onClick={() => setConfirmArchive(true)}
+                disabled={!isOnline}
                 className="shrink-0 text-error hover:border-error/40 hover:bg-error/5 hover:text-error"
               >
                 <Archive className="size-4" aria-hidden="true" />
@@ -237,10 +289,11 @@ export function PatientFormDialog({ open, patient = null, onClose, onSaved }) {
         message={`${patient?.full_name ?? 'This patient'} will be removed from the active roster. Their orders, payments, and visits remain on record.`}
         confirmLabel="Archive Patient"
         cancelLabel="Keep Patient"
-        tone="danger"
+        variant="danger"
         loading={archiving}
+        confirmDisabled={!isOnline}
         onConfirm={handleArchive}
-        onClose={() => setConfirmArchive(false)}
+        onCancel={() => setConfirmArchive(false)}
       />
     </>
   )
