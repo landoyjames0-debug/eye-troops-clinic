@@ -169,7 +169,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="login-page relative min-h-dvh overflow-hidden">
+    <div className="login-page relative min-h-dvh overflow-x-clip">
       <AnimatedBackground />
       <CustomCursor />
 
