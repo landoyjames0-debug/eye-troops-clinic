@@ -4,7 +4,7 @@ export function Card({ className, ...props }) {
   return (
     <div
       className={cn(
-        'min-w-0 rounded-card border border-champagne bg-surface shadow-card transition-shadow duration-200 hover:shadow-raised',
+        '@container min-w-0 rounded-card border border-champagne bg-surface shadow-card transition-shadow duration-200 hover:shadow-raised',
         className,
       )}
       {...props}
@@ -37,7 +37,7 @@ export function Table({ className, ...props }) {
 }
 
 export function THead({ className, ...props }) {
-  return <thead className={cn('border-b border-champagne bg-ivory/70', className)} {...props} />
+  return <thead className={cn('sticky top-0 z-10 border-b border-champagne bg-ivory/95 backdrop-blur-xs', className)} {...props} />
 }
 
 export function TBody({ className, ...props }) {

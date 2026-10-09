@@ -111,9 +111,16 @@ export function DatePicker({
     const rect = triggerRef.current?.getBoundingClientRect()
     if (rect && window.matchMedia('(min-width: 640px)').matches) {
       const width = Math.min(300, window.innerWidth - 16)
+      const height = 360
+      const spaceBelow = window.innerHeight - rect.bottom
+      const spaceAbove = rect.top
+      const flip = spaceBelow < height && spaceAbove > spaceBelow
+      const top = flip
+        ? Math.max(8, rect.top - height - 8)
+        : Math.max(8, Math.min(rect.bottom + 8, window.innerHeight - height - 8))
       setDesktopPosition({
         left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)),
-        top: Math.max(8, Math.min(rect.bottom + 8, window.innerHeight - 380)),
+        top,
       })
     } else {
       setDesktopPosition(null)

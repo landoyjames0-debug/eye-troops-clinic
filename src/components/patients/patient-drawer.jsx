@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
-import { CalendarDays, ClipboardPlus, Clock3, NotebookPen } from 'lucide-react'
+import { Ban, CalendarDays, ClipboardPlus, Clock3, Eye, NotebookPen } from 'lucide-react'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
-import { StatusBadge } from '@/components/ui/badge'
+import { Badge, StatusBadge } from '@/components/ui/badge'
 import { EmptyState, Skeleton } from '@/components/ui/feedback'
 import { PrescriptionTable } from '@/components/visits/prescription-table'
 import { useAsync } from '@/hooks/use-async'
@@ -62,7 +62,7 @@ function TimelineItem({ date, meta, status, children, action }) {
 }
 
 /** Patient details drawer — opened from the Patients table row or View button. */
-export function PatientDrawer({ patientId, cpLabel, onClose }) {
+export function PatientDrawer({ patientId, cpLabel, onClose, onSelectOrder, onCancelOrder }) {
   const detail = useAsync(
     () => (patientId ? getPatientDetail(patientId) : Promise.resolve(null)),
     [patientId],
@@ -175,7 +175,38 @@ export function PatientDrawer({ patientId, cpLabel, onClose }) {
                     <TimelineItem
                       key={order.id}
                       date={`${order.order_number} · ${formatDateShort(order.order_date)}`}
-                      status={order.status}
+                      action={(
+                        <div className="flex flex-wrap items-center justify-end gap-1.5">
+                          <StatusBadge status={order.status} />
+                          {Number(order.total_amount) > 0 && order.balance <= 0 && (
+                            <Badge variant="success">Completed</Badge>
+                          )}
+                          {onSelectOrder && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="border-gold/60 font-semibold text-gold-dark"
+                              onClick={() => onSelectOrder(order)}
+                            >
+                              <Eye className="size-4" aria-hidden="true" />
+                              View order
+                            </Button>
+                          )}
+                          {onCancelOrder && !['CLAIMED', 'CANCELLED'].includes(order.status) && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="border-error/50 text-error hover:bg-error/5"
+                              onClick={() => onCancelOrder(order)}
+                            >
+                              <Ban className="size-4" aria-hidden="true" />
+                              Cancel order
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     >
                       <dl className="mt-2.5 grid grid-cols-3 gap-3">
                         <Summary label="Total" value={formatPeso(order.total_amount)} />
@@ -186,6 +217,29 @@ export function PatientDrawer({ patientId, cpLabel, onClose }) {
                           tone={order.balance > 0 ? 'due' : 'default'}
                         />
                       </dl>
+                      <div className="mt-3">
+                        <SectionLabel>Payments for {order.order_number}</SectionLabel>
+                        {order.payments.length > 0 ? (
+                          <ul className="mt-2 divide-y divide-champagne/60 rounded-control border border-champagne">
+                            {order.payments.map((payment) => (
+                              <li key={payment.id} className="flex items-center justify-between gap-3 px-3 py-2 text-[12px]">
+                                <span className="min-w-0">
+                                  <span className="block text-warmgray">{formatDateShort(payment.payment_date)}</span>
+                                  <span className="block truncate text-espresso">{payment.notes || 'Payment'}</span>
+                                </span>
+                                <span className="shrink-0 text-right">
+                                  <span className="tabular block font-semibold text-espresso">{formatPeso(payment.amount)}</span>
+                                  {payment.status !== 'COMPLETED' && (
+                                    <span className="text-[10px] text-warmgray">{payment.status}</span>
+                                  )}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="mt-1 text-[12px] text-warmgray">No payments recorded.</p>
+                        )}
+                      </div>
                     </TimelineItem>
                   ))}
 

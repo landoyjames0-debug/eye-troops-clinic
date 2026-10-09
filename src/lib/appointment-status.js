@@ -1,14 +1,13 @@
 /**
- * Canonical appointment statuses matching the database check constraint:
- * check (status in ('scheduled', 'arrived', 'completed', 'no_show', 'cancelled'))
+ * Canonical appointment statuses matching the public.appointment_status enum.
  */
 
 export const APPOINTMENT_STATUS = Object.freeze({
-  SCHEDULED: 'scheduled',
-  ARRIVED: 'arrived',
-  COMPLETED: 'completed',
-  NO_SHOW: 'no_show',
-  CANCELLED: 'cancelled',
+  SCHEDULED: 'Scheduled',
+  ARRIVED: 'Checked In',
+  COMPLETED: 'Completed',
+  NO_SHOW: 'No Show',
+  CANCELLED: 'Cancelled',
 })
 
 export const APPOINTMENT_STATUS_LIST = Object.freeze([
@@ -21,31 +20,31 @@ export const APPOINTMENT_STATUS_LIST = Object.freeze([
 
 export const APPOINTMENT_STATUS_META = Object.freeze({
   [APPOINTMENT_STATUS.SCHEDULED]: {
-    value: 'scheduled',
+    value: 'Scheduled',
     label: 'Scheduled',
     badgeVariant: 'neutral',
     tone: 'neutral',
   },
   [APPOINTMENT_STATUS.ARRIVED]: {
-    value: 'arrived',
+    value: 'Checked In',
     label: 'Arrived',
     badgeVariant: 'warning',
     tone: 'warning',
   },
   [APPOINTMENT_STATUS.COMPLETED]: {
-    value: 'completed',
+    value: 'Completed',
     label: 'Completed',
     badgeVariant: 'success',
     tone: 'success',
   },
   [APPOINTMENT_STATUS.NO_SHOW]: {
-    value: 'no_show',
+    value: 'No Show',
     label: 'No-show',
     badgeVariant: 'neutral',
     tone: 'neutral',
   },
   [APPOINTMENT_STATUS.CANCELLED]: {
-    value: 'cancelled',
+    value: 'Cancelled',
     label: 'Cancelled',
     badgeVariant: 'error',
     tone: 'error',

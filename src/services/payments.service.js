@@ -24,16 +24,20 @@ export async function createPayment(input) {
   if (!(amount > 0)) {
     throw toAppError(new Error('amount must be positive'), 'savePayment')
   }
+  if (!input.idempotency_key) {
+    throw toAppError(new Error('payment idempotency key is required'), 'savePayment')
+  }
 
   const payload = {
-    order_id: input.order_id,
-    amount,
-    payment_date: input.payment_date,
-    notes: input.notes.trim() || null,
+    p_order_id: input.order_id,
+    p_amount: amount,
+    p_payment_date: input.payment_date,
+    p_notes: input.notes?.trim() || null,
+    p_idempotency_key: input.idempotency_key,
   }
 
   try {
-    return unwrap(await supabase.from('payments').insert(payload).select('*').single())
+    return unwrap(await supabase.rpc('record_order_payment', payload).single())
   } catch (caught) {
     throw toAppError(caught, 'savePayment')
   }

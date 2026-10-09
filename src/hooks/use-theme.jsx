@@ -37,7 +37,7 @@ export function ThemeProvider({ children }) {
     root.style.colorScheme = theme
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', theme === 'dark' ? '#191714' : '#FBF5EC')
+      ?.setAttribute('content', theme === 'dark' ? '#171513' : '#FBF5EC')
   }, [theme])
 
   const setTheme = useCallback((nextTheme) => {

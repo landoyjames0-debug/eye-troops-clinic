@@ -106,7 +106,7 @@
 html.dark .animated-background {
   background:
     radial-gradient(circle at top left, rgb(216 168 79 / 0.28), transparent 30%),
-    linear-gradient(135deg, #191714 0%, #201c17 38%, #261f18 100%);
+    linear-gradient(135deg, #171513 0%, #201c17 38%, #261f18 100%);
 }
 
 html.dark .animated-background__halo {
@@ -212,6 +212,6 @@ html.dark .animated-background__ring {
   html.dark .animated-background {
     background:
       radial-gradient(circle at 20% 20%, rgb(188 128 42 / 0.45), transparent 32%),
-      linear-gradient(135deg, #1c1815 0%, #241f1a 100%);
+      linear-gradient(135deg, #171513 0%, #241f1a 100%);
   }
 }

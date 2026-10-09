@@ -275,6 +275,109 @@ function formatCsvNumber(value) {
   return value == null || value === '' ? '' : Number(value)
 }
 
+function MonthlyBreakdownCard({ row, isCurrentMonth, monthlyTotals, isLast }) {
+  return (
+    <article className="group relative flex cursor-pointer items-start gap-3.5 rounded-xl border border-transparent px-4 py-4 transition-all hover:-translate-y-0.5 hover:border-gold/70 hover:bg-gold-light/30 hover:shadow-raised focus-within:border-gold/70 focus-within:bg-gold-light/20 motion-reduce:transition-none">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-espresso">{row.label}</span>
+              {isCurrentMonth && (
+                <span className="ml-2 text-[10px] font-semibold tracking-wide text-gold-dark uppercase">Current</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-2.5 grid grid-cols-3 gap-x-4 gap-y-1.5 text-[12px]">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="text-warmgray">Sales:</span>
+            <span className="tabular font-medium text-success">{formatPeso(row.sales)}</span>
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="text-warmgray">Expenses:</span>
+            <span className="tabular font-medium text-warmgray">{formatPeso(row.expenses)}</span>
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="text-warmgray">Net:</span>
+            <span className={cn('tabular font-semibold', row.net < 0 ? 'text-error' : 'text-espresso')}>
+              {formatPeso(row.net)}
+            </span>
+          </span>
+        </div>
+
+{isLast ? (
+            <div className="mt-3 pt-3 border-t border-gold bg-gold-light/50 rounded-lg">
+              <div className="grid grid-cols-3 gap-x-4 gap-y-1.5 text-[12px]">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="text-warmgray">Total Sales:</span>
+                  <span className="tabular font-bold text-espresso">{formatPeso(monthlyTotals.sales)}</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="text-warmgray">Total Expenses:</span>
+                  <span className="tabular font-bold text-espresso">{formatPeso(monthlyTotals.expenses)}</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="text-warmgray">Total Net:</span>
+                  <span className={cn('tabular font-bold', monthlyTotals.net < 0 ? 'text-error' : 'text-success')}>
+                    {formatPeso(monthlyTotals.net)}
+                  </span>
+                </span>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </article>
+  )
+}
+
+function PaymentCard({ payment }) {
+  return (
+    <article className="group relative flex cursor-pointer items-start gap-3.5 rounded-xl border border-transparent px-4 py-4 transition-all hover:-translate-y-0.5 hover:border-gold/70 hover:bg-gold-light/30 hover:shadow-raised focus-within:border-gold/70 focus-within:bg-gold-light/20 motion-reduce:transition-none">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-3">
+          <span className="tabular text-[13px] text-warmgray">{formatDateShort(payment.payment_date)}</span>
+          <span className="tabular text-[13px] font-semibold text-success">{formatPeso(payment.amount)}</span>
+        </div>
+        <div className="mt-1.5 flex items-center gap-2 text-[13px] text-warmgray">
+          <span className="font-medium text-espresso">{paymentMethodOf(payment) ?? 'Payment'}</span>
+          {paymentNoteOf(payment) && (
+            <span className="text-warmgray/80">· {paymentNoteOf(payment)}</span>
+          )}
+        </div>
+      </div>
+    </article>
+  )
+}
+
+function ExpenseCard({ expense, onEdit, onDelete }) {
+  return (
+    <article className="group relative flex cursor-pointer items-start gap-3.5 rounded-xl border border-transparent px-4 py-4 transition-all hover:-translate-y-0.5 hover:border-gold/70 hover:bg-gold-light/30 hover:shadow-raised focus-within:border-gold/70 focus-within:bg-gold-light/20 motion-reduce:transition-none">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-espresso">{expense.category}</p>
+            {expense.description && <p className="mt-0.5 truncate text-xs text-warmgray">{expense.description}</p>}
+          </div>
+          <span className="tabular text-[13px] font-semibold text-espresso">{formatPeso(expense.amount)}</span>
+        </div>
+        <div className="mt-1.5 flex items-center gap-2 text-[13px] text-warmgray">
+          <span className="tabular">{formatDateShort(expense.expense_date)}</span>
+        </div>
+        <div className="mt-2.5 flex justify-end gap-1.5 pt-3 border-t border-champagne/60">
+          <Button variant="ghost" size="icon" onClick={() => onEdit(expense)} aria-label={`Edit ${expense.category} expense`} className="size-8">
+            <Pencil className="size-4" aria-hidden="true" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => onDelete(expense)} aria-label={`Delete ${expense.category} expense`} className="size-8 text-error hover:bg-error/5 hover:text-error">
+            <Trash2 className="size-4" aria-hidden="true" />
+          </Button>
+        </div>
+      </div>
+    </article>
+  )
+}
+
 function matchesSearch(search, values) {
   const term = search.trim().toLowerCase()
   if (!term) return true
@@ -760,6 +863,7 @@ export default function SalesExpensesPage() {
 
   return (
     <>
+      <div style={{ '--container-max': 'var(--container-page-wide)' }}>
       <PageHeader
         title="Sales & Expenses"
         description="Cash in from payments versus cash out for running the clinic."
@@ -817,7 +921,8 @@ export default function SalesExpensesPage() {
                 })}
               </div>
               {olderYears.length > 0 && (
-                <div className="min-w-24">
+                <>
+                  <div className="min-w-24">
                   <Select
                     id="older-years"
                     aria-label="More years"
@@ -836,8 +941,9 @@ export default function SalesExpensesPage() {
                     }}
                     className="h-9 min-h-9 px-2.5 text-[12px] font-semibold"
                   />
-                </div>
-              )}
+</div>
+          </>
+        )}
             </div>
 
             <div
@@ -1069,72 +1175,88 @@ export default function SalesExpensesPage() {
               <SkeletonRows rows={6} columns={4} />
             </Table>
           ) : (
-            <Table>
-              <THead>
-                <tr>
-                  <TH>Month</TH>
-                  <TH className="text-right">Sales</TH>
-                  <TH className="text-right">Expenses</TH>
-                  <TH className="text-right">Net</TH>
-                </tr>
-              </THead>
-              <TBody>
-                {monthlyRows.map((row, idx) => {
-                  const isCurrentMonth = isCurrentYear && row.key === `${year}-${String(currentMonthIndex + 1).padStart(2, '0')}`
-                  return (
-                  <TR
-                    key={row.key}
-                    className={cn(
-                      idx % 2 === 0 ? 'bg-surface' : 'bg-ivory/40',
-                      isCurrentMonth && 'ring-1 ring-inset ring-gold/35',
-                    )}
-                  >
-                    <TD className="font-medium text-espresso">
-                      {row.label}
-                      {isCurrentMonth && (
-                        <span className="ml-2 text-[10px] font-semibold tracking-wide text-gold-dark uppercase">
-                          Current
-                        </span>
+            <>
+              <div className="hidden md:block">
+                <Table>
+                <THead>
+                  <tr>
+                    <TH>Month</TH>
+                    <TH className="text-right">Sales</TH>
+                    <TH className="text-right">Expenses</TH>
+                    <TH className="text-right">Net</TH>
+                  </tr>
+                </THead>
+                <TBody>
+                  {monthlyRows.map((row, idx) => {
+                    const isCurrentMonth = isCurrentYear && row.key === `${year}-${String(currentMonthIndex + 1).padStart(2, '0')}`
+                    return (
+                    <TR
+                      key={row.key}
+                      className={cn(
+                        idx % 2 === 0 ? 'bg-surface' : 'bg-ivory/40',
+                        isCurrentMonth && 'ring-1 ring-inset ring-gold/35',
                       )}
-                    </TD>
-                    <TD className="tabular text-right text-[13px]">{formatPeso(row.sales)}</TD>
-                    <TD className="tabular text-right text-[13px] text-warmgray">
-                      {formatPeso(row.expenses)}
-                    </TD>
-                    <TD className="tabular text-right text-[13px]">
-                      <span
-                        className={cn(
-                          'font-semibold',
-                          row.net < 0 ? 'text-error' : 'text-espresso',
+                    >
+                      <TD className="font-medium text-espresso">
+                        {row.label}
+                        {isCurrentMonth && (
+                          <span className="ml-2 text-[10px] font-semibold tracking-wide text-gold-dark uppercase">
+                            Current
+                          </span>
                         )}
-                      >
-                        {formatPeso(row.net)}
+                      </TD>
+                      <TD className="tabular text-right text-[13px]">{formatPeso(row.sales)}</TD>
+                      <TD className="tabular text-right text-[13px] text-warmgray">
+                        {formatPeso(row.expenses)}
+                      </TD>
+                      <TD className="tabular text-right text-[13px]">
+                        <span
+                          className={cn(
+                            'font-semibold',
+                            row.net < 0 ? 'text-error' : 'text-espresso',
+                          )}
+                        >
+                          {formatPeso(row.net)}
+                        </span>
+                      </TD>
+                    </TR>
+                    )
+                  })}
+                </TBody>
+                {monthlyRows.length > 0 && <tfoot>
+                  <tr className="year-total-row sticky bottom-0 z-10">
+                    <TD className="border-t-2 border-gold bg-gold-light py-4 text-sm font-bold text-espresso">
+                      Period total
+                    </TD>
+                    <TD className="tabular border-t-2 border-gold bg-gold-light py-4 text-right text-[15px] font-bold text-espresso">
+                      {formatPeso(monthlyTotals.sales)}
+                    </TD>
+                    <TD className="tabular border-t-2 border-gold bg-gold-light py-4 text-right text-[15px] font-bold text-espresso">
+                      {formatPeso(monthlyTotals.expenses)}
+                    </TD>
+                    <TD className="tabular border-t-2 border-gold bg-gold-light py-4 text-right text-[15px] font-bold">
+                      <span className={monthlyTotals.net < 0 ? 'text-error' : 'text-success'}>
+                        {formatPeso(monthlyTotals.net)}
                       </span>
                     </TD>
-                  </TR>
-                  )
-                })}
-              </TBody>
-              {monthlyRows.length > 0 && <tfoot>
-                <tr className="year-total-row sticky bottom-0 z-10">
-                  <TD className="border-t-2 border-gold bg-gold-light py-4 text-sm font-bold text-espresso">
-                    Period total
-                  </TD>
-                  <TD className="tabular border-t-2 border-gold bg-gold-light py-4 text-right text-[15px] font-bold text-espresso">
-                    {formatPeso(monthlyTotals.sales)}
-                  </TD>
-                  <TD className="tabular border-t-2 border-gold bg-gold-light py-4 text-right text-[15px] font-bold text-espresso">
-                    {formatPeso(monthlyTotals.expenses)}
-                  </TD>
-                  <TD className="tabular border-t-2 border-gold bg-gold-light py-4 text-right text-[15px] font-bold">
-                    <span className={monthlyTotals.net < 0 ? 'text-error' : 'text-success'}>
-                      {formatPeso(monthlyTotals.net)}
-                    </span>
-                  </TD>
-                </tr>
-              </tfoot>}
-            </Table>
-          )}
+                  </tr>
+                </tfoot>}
+              </Table>
+            </div>
+
+            <div className="md:hidden divide-y divide-champagne/50">
+              {monthlyRows.map((row, idx) => (
+                <MonthlyBreakdownCard
+                  key={row.key}
+                  row={row}
+                  isCurrentMonth={isCurrentYear && row.key === `${year}-${String(currentMonthIndex + 1).padStart(2, '0')}`}
+                  monthlyTotals={monthlyTotals}
+                  isLast={idx === monthlyRows.length - 1}
+                />
+              ))}
+            </div>
+          </>
+        )}
         </Card>
         </section>
 
@@ -1187,51 +1309,68 @@ export default function SalesExpensesPage() {
               </Table>
             ) : paymentRows.length > 0 ? (
               <>
-                <Table>
-                  <THead>
-                    <tr>
-                      <TH className="w-28">Date</TH>
-                      <TH>Method / reference</TH>
-                      <TH className="w-32 text-right">Amount</TH>
-                    </tr>
-                  </THead>
-                  <TBody>
-                    {visiblePayments.map((payment, idx) => (
-                      <TR
-                        key={payment.id}
-                        className={idx % 2 === 0 ? 'bg-surface' : 'bg-ivory/40'}
-                      >
-                        <TD className="tabular text-[13px] text-warmgray">
-                          {formatDateShort(payment.payment_date)}
-                        </TD>
-                        <TD className="min-w-0 text-[13px] text-warmgray">
-                          <span className="font-medium text-espresso">
-                            {paymentMethodOf(payment) ?? 'Payment'}
-                          </span>
-                          {paymentNoteOf(payment) && (
-                            <span className="text-warmgray/80">
-                              {' · '}
-                              {paymentNoteOf(payment)}
+                <div className="hidden md:block">
+                  <Table>
+                    <THead>
+                      <tr>
+                        <TH className="w-28">Date</TH>
+                        <TH>Method / reference</TH>
+                        <TH className="w-32 text-right">Amount</TH>
+                      </tr>
+                    </THead>
+                    <TBody>
+                      {visiblePayments.map((payment, idx) => (
+                        <TR
+                          key={payment.id}
+                          className={idx % 2 === 0 ? 'bg-surface' : 'bg-ivory/40'}
+                        >
+                          <TD className="tabular text-[13px] text-warmgray">
+                            {formatDateShort(payment.payment_date)}
+                          </TD>
+                          <TD className="min-w-0 text-[13px] text-warmgray">
+                            <span className="font-medium text-espresso">
+                              {paymentMethodOf(payment) ?? 'Payment'}
                             </span>
-                          )}
-                        </TD>
-                        <TD className="tabular text-right text-[13px] font-semibold text-success">
-                          {formatPeso(payment.amount)}
-                        </TD>
-                      </TR>
-                    ))}
-                  </TBody>
-                </Table>
+                            {paymentNoteOf(payment) && (
+                              <span className="text-warmgray/80">
+                                {' · '}
+                                {paymentNoteOf(payment)}
+                              </span>
+                            )}
+                          </TD>
+                          <TD className="tabular text-right text-[13px] font-semibold text-success">
+                            {formatPeso(payment.amount)}
+                          </TD>
+                        </TR>
+                      ))}
+                    </TBody>
+                  </Table>
 
-                <Pagination
-                  page={currentPaymentPage}
-                  pageCount={paymentPageCount}
-                  total={paymentRows.length}
-                  pageSize={TABLE_PAGE_SIZE}
-                  itemLabel="payment"
-                  ariaLabel="payments pagination"
-                  onPageChange={setPaymentPage}
-                />
+                  <Pagination
+                    page={currentPaymentPage}
+                    pageCount={paymentPageCount}
+                    total={paymentRows.length}
+                    pageSize={TABLE_PAGE_SIZE}
+                    itemLabel="payment"
+                    ariaLabel="payments pagination"
+                    onPageChange={setPaymentPage}
+                  />
+                </div>
+
+                <div className="md:hidden divide-y divide-champagne/50">
+                  {visiblePayments.map((payment) => (
+                    <PaymentCard key={payment.id} payment={payment} />
+                  ))}
+                  <Pagination
+                    page={currentPaymentPage}
+                    pageCount={paymentPageCount}
+                    total={paymentRows.length}
+                    pageSize={TABLE_PAGE_SIZE}
+                    itemLabel="payment"
+                    ariaLabel="payments pagination"
+                    onPageChange={setPaymentPage}
+                  />
+                </div>
               </>
             ) : (
               <EmptyState
@@ -1280,69 +1419,92 @@ export default function SalesExpensesPage() {
               </Table>
             ) : expenseRows.length > 0 ? (
               <>
-                <Table>
-                  <THead>
-                    <tr>
-                      <TH className="w-28">Date</TH>
-                      <TH>Category</TH>
-                      <TH className="w-28 text-right">Amount</TH>
-                      <TH className="w-24 text-right">Actions</TH>
-                    </tr>
-                  </THead>
-                  <TBody>
-                    {visibleExpenses.map((expense, idx) => (
-                      <TR
-                        key={expense.id}
-                        className={idx % 2 === 0 ? 'bg-surface' : 'bg-ivory/40'}
-                      >
-                        <TD className="tabular text-[13px] text-warmgray">
-                          {formatDateShort(expense.expense_date)}
-                        </TD>
-                        <TD className="min-w-0">
-                          <p className="text-sm font-medium text-espresso">{expense.category}</p>
-                          {expense.description && (
-                            <p className="truncate text-xs text-warmgray">{expense.description}</p>
-                          )}
-                        </TD>
-                        <TD className="tabular text-right text-[13px] font-semibold text-espresso">
-                          {formatPeso(expense.amount)}
-                        </TD>
-                        <TD>
-                          <div className="flex justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setEditingExpense(expense)}
-                              aria-label={`Edit ${expense.category} expense`}
-                              className="size-9"
-                            >
-                              <Pencil className="size-4" aria-hidden="true" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setDeletingExpense(expense)}
-                              aria-label={`Delete ${expense.category} expense`}
-                              className="size-9 text-error hover:bg-error/5 hover:text-error"
-                            >
-                              <Trash2 className="size-4" aria-hidden="true" />
-                            </Button>
-                          </div>
-                        </TD>
-                      </TR>
-                    ))}
-                  </TBody>
-                </Table>
+                <div className="hidden md:block">
+                  <Table>
+                    <THead>
+                      <tr>
+                        <TH className="w-28">Date</TH>
+                        <TH>Category</TH>
+                        <TH className="w-28 text-right">Amount</TH>
+                        <TH className="w-24 text-right">Actions</TH>
+                      </tr>
+                    </THead>
+                    <TBody>
+                      {visibleExpenses.map((expense, idx) => (
+                        <TR
+                          key={expense.id}
+                          className={idx % 2 === 0 ? 'bg-surface' : 'bg-ivory/40'}
+                        >
+                          <TD className="tabular text-[13px] text-warmgray">
+                            {formatDateShort(expense.expense_date)}
+                          </TD>
+                          <TD className="min-w-0">
+                            <p className="text-sm font-medium text-espresso">{expense.category}</p>
+                            {expense.description && (
+                              <p className="truncate text-xs text-warmgray">{expense.description}</p>
+                            )}
+                          </TD>
+                          <TD className="tabular text-right text-[13px] font-semibold text-espresso">
+                            {formatPeso(expense.amount)}
+                          </TD>
+                          <TD>
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setEditingExpense(expense)}
+                                aria-label={`Edit ${expense.category} expense`}
+                                className="size-9"
+                              >
+                                <Pencil className="size-4" aria-hidden="true" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setDeletingExpense(expense)}
+                                aria-label={`Delete ${expense.category} expense`}
+                                className="size-9 text-error hover:bg-error/5 hover:text-error"
+                              >
+                                <Trash2 className="size-4" aria-hidden="true" />
+                              </Button>
+                            </div>
+                          </TD>
+                        </TR>
+                      ))}
+                    </TBody>
+                  </Table>
 
-                <Pagination
-                  page={currentExpensePage}
-                  pageCount={expensePageCount}
-                  total={expenseRows.length}
-                  pageSize={TABLE_PAGE_SIZE}
-                  itemLabel="expense"
-                  ariaLabel="expenses pagination"
-                  onPageChange={setExpensePage}
-                />
+                  <Pagination
+                    page={currentExpensePage}
+                    pageCount={expensePageCount}
+                    total={expenseRows.length}
+                    pageSize={TABLE_PAGE_SIZE}
+                    itemLabel="expense"
+                    ariaLabel="expenses pagination"
+                    onPageChange={setExpensePage}
+                  />
+                </div>
+
+                {/* Mobile card view */}
+                <div className="md:hidden divide-y divide-champagne/50">
+                  {visibleExpenses.map((expense) => (
+                    <ExpenseCard
+                      key={expense.id}
+                      expense={expense}
+                      onEdit={setEditingExpense}
+                      onDelete={setDeletingExpense}
+                    />
+                  ))}
+                  <Pagination
+                    page={currentExpensePage}
+                    pageCount={expensePageCount}
+                    total={expenseRows.length}
+                    pageSize={TABLE_PAGE_SIZE}
+                    itemLabel="expense"
+                    ariaLabel="expenses pagination"
+                    onPageChange={setExpensePage}
+                  />
+                </div>
               </>
             ) : (
               <EmptyState
@@ -1360,6 +1522,7 @@ export default function SalesExpensesPage() {
           </Card>
         </section>
         </div>
+      </div>
       </div>
 
       <ExpenseDialog

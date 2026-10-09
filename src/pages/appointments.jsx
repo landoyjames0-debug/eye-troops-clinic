@@ -10,6 +10,7 @@ import {
   ChevronDown,
   Clock3,
   Pencil,
+  Trash2,
   UserRoundX,
   Users,
   UserRound,
@@ -24,7 +25,7 @@ import { useAuth } from '@/hooks/use-auth'
 import { useAsync } from '@/hooks/use-async'
 import { useConfirm } from '@/hooks/use-confirm'
 import { useResultDialog } from '@/hooks/use-result-dialog'
-import { cancelAppointment, createAppointment, findOverlappingAppointment, listAppointments, updateAppointment } from '@/lib/appointments'
+import { cancelAppointment, createAppointment, deleteAppointment, findOverlappingAppointment, listAppointments, updateAppointment } from '@/lib/appointments'
 import {
   APPOINTMENT_STATUS,
   getAppointmentStatusBadge,
@@ -195,8 +196,13 @@ export default function AppointmentsPage() {
         !patientListRef.current?.contains(event.target)
       ) setPatientPickerOpen(false)
     }
+    const handleScroll = () => setPatientPickerOpen(false)
     document.addEventListener('pointerdown', closeOutside)
-    return () => document.removeEventListener('pointerdown', closeOutside)
+    window.addEventListener('scroll', handleScroll, true)
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside)
+      window.removeEventListener('scroll', handleScroll, true)
+    }
   }, [])
 
   const upcoming = useMemo(
@@ -331,7 +337,7 @@ export default function AppointmentsPage() {
         return
       }
 
-      invalidateClinicQueries(userId, 'loadAppointments', 'dashboard-summary', 'today-activity')
+      invalidateClinicQueries(userId, 'loadAppointments', 'loadSummary')
       appointments.reload()
       setAvailabilityRevision((revision) => revision + 1)
       resultDialog.success({
@@ -394,7 +400,7 @@ export default function AppointmentsPage() {
       } else {
         await updateAppointment(appointment.id, { status: nextStatus })
       }
-      invalidateClinicQueries(userId, 'loadAppointments', 'dashboard-summary', 'today-activity')
+      invalidateClinicQueries(userId, 'loadAppointments', 'loadSummary')
       appointments.reload()
       setAvailabilityRevision((revision) => revision + 1)
       const actionLabel = nextStatus === APPOINTMENT_STATUS.ARRIVED
@@ -440,8 +446,39 @@ export default function AppointmentsPage() {
     if (approved) await performRowAction(appointment, nextStatus)
   }
 
+  const handleDeleteAppointment = async (appointment) => {
+    if (saving || actionBusyId !== null) return
+    const patientName = appointment.patient_name ?? 'This patient'
+    const approved = await confirm({
+      title: 'Delete appointment permanently?',
+      message: `Permanently delete ${patientName}'s appointment? Any follow-up linked to this appointment will also be deleted.`,
+      confirmLabel: 'Delete permanently',
+      cancelLabel: 'Keep appointment',
+      variant: 'danger',
+      errorMessage: 'Could not delete the appointment. Please try again.',
+      onConfirm: async () => {
+        setActionBusyId(appointment.id)
+        try {
+          await deleteAppointment(appointment.id)
+        } finally {
+          setActionBusyId(null)
+        }
+      },
+    })
+    if (!approved) return
+
+    invalidateClinicQueries(userId, 'loadAppointments', 'loadSummary', 'loadFollowups')
+    appointments.reload()
+    setAvailabilityRevision((revision) => revision + 1)
+    resultDialog.success({
+      title: 'Appointment deleted',
+      message: `${patientName}'s appointment was permanently deleted.`,
+    })
+  }
+
   return (
-    <div className="space-y-6">
+    <div style={{ '--container-max': 'var(--container-page-wide)' }}>
+      <div className="space-y-6">
       <PageHeader
         title="Appointments"
         description="Book consults, follow-ups, and optical visits around the clinic schedule."
@@ -499,7 +536,7 @@ export default function AppointmentsPage() {
         />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-[420px_minmax(0,1fr)]">
         <Card className="p-5">
           <div className="flex items-center justify-between gap-3">
             <SectionTitle>{editingAppointment ? 'Edit appointment' : 'Schedule visit'}</SectionTitle>
@@ -660,6 +697,7 @@ export default function AppointmentsPage() {
                 label="Duration (minutes)"
                 id="appointment-duration"
                 type="number"
+                inputMode="numeric"
                 min="5"
                 max="480"
                 step="5"
@@ -777,29 +815,34 @@ export default function AppointmentsPage() {
                             </div>
 
                             <div className="flex flex-wrap gap-1.5 lg:justify-end">
-                              {canArrive && (
-                                <Button type="button" variant="ghost" size="sm" disabled={actionsLocked} onClick={() => void handleRowAction(appointment, APPOINTMENT_STATUS.ARRIVED)}>
-                                  <Check className="size-3.5" aria-hidden="true" /> Arrived
+                              <>
+                                {canArrive && (
+                                  <Button type="button" variant="ghost" size="sm" disabled={actionsLocked} onClick={() => void handleRowAction(appointment, APPOINTMENT_STATUS.ARRIVED)}>
+                                    <Check className="size-3.5" aria-hidden="true" /> Arrived
+                                  </Button>
+                                )}
+                                {canComplete && (
+                                  <Button type="button" variant="ghost" size="sm" disabled={actionsLocked} onClick={() => void handleRowAction(appointment, APPOINTMENT_STATUS.COMPLETED)}>
+                                    <CircleCheck className="size-3.5" aria-hidden="true" /> Complete
+                                  </Button>
+                                )}
+                                {canNoShow && (
+                                  <Button type="button" variant="ghost" size="sm" disabled={actionsLocked} onClick={() => void handleRowAction(appointment, APPOINTMENT_STATUS.NO_SHOW)}>
+                                    <UserRoundX className="size-3.5" aria-hidden="true" /> No-show
+                                  </Button>
+                                )}
+                                <Button type="button" variant="ghost" size="sm" disabled={actionsLocked} onClick={() => void handleEdit(appointment)}>
+                                  <Pencil className="size-3.5" aria-hidden="true" /> Edit
                                 </Button>
-                              )}
-                              {canComplete && (
-                                <Button type="button" variant="ghost" size="sm" disabled={actionsLocked} onClick={() => void handleRowAction(appointment, APPOINTMENT_STATUS.COMPLETED)}>
-                                  <CircleCheck className="size-3.5" aria-hidden="true" /> Complete
+                                <Button type="button" variant="ghost" size="sm" disabled={actionsLocked} className="text-error hover:bg-error/5 hover:text-error" onClick={() => void handleDeleteAppointment(appointment)}>
+                                  <Trash2 className="size-3.5" aria-hidden="true" /> Delete
                                 </Button>
-                              )}
-                              {canNoShow && (
-                                <Button type="button" variant="ghost" size="sm" disabled={actionsLocked} onClick={() => void handleRowAction(appointment, APPOINTMENT_STATUS.NO_SHOW)}>
-                                  <UserRoundX className="size-3.5" aria-hidden="true" /> No-show
-                                </Button>
-                              )}
-                              <Button type="button" variant="ghost" size="sm" disabled={actionsLocked} onClick={() => void handleEdit(appointment)}>
-                                <Pencil className="size-3.5" aria-hidden="true" /> Edit
-                              </Button>
-                              {canCancel && (
-                                <Button type="button" variant="ghost" size="sm" disabled={actionsLocked} className="text-error hover:bg-error/5 hover:text-error" onClick={() => void handleRowAction(appointment, APPOINTMENT_STATUS.CANCELLED)}>
-                                  <Ban className="size-3.5" aria-hidden="true" /> Cancel
-                                </Button>
-                              )}
+                                {canCancel && (
+                                  <Button type="button" variant="ghost" size="sm" disabled={actionsLocked} className="text-error hover:bg-error/5 hover:text-error" onClick={() => void handleRowAction(appointment, APPOINTMENT_STATUS.CANCELLED)}>
+                                    <Ban className="size-3.5" aria-hidden="true" /> Cancel
+                                  </Button>
+                                )}
+                              </>
                             </div>
                           </article>
                         )
@@ -813,5 +856,6 @@ export default function AppointmentsPage() {
         </Card>
       </div>
     </div>
-  )
+  </div>
+  );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   AlertCircle,
@@ -24,6 +24,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { AddPaymentDialog } from '@/components/orders/add-payment-dialog'
 import { EditOrderDialog } from '@/components/orders/edit-order-dialog'
 import { PrescriptionTable } from '@/components/visits/prescription-table'
+import { PatientDrawer } from '@/components/patients/patient-drawer'
 import { useAuth } from '@/hooks/use-auth'
 import { useAsync } from '@/hooks/use-async'
 import { useDebouncedSearchParam } from '@/hooks/use-debounced-search-param'
@@ -40,12 +41,14 @@ import { voidPayment } from '@/services/payments.service'
 import { invalidateClinicQueries } from '@/lib/query-client'
 import { getPrescriptionForVisit } from '@/services/visits.service'
 import {
+  ORDER_STATUS,
   ORDER_STATUSES,
   ORDER_STATUS_META,
   ORDER_STATUS_FILTERS,
+  paymentMethodOf,
+  paymentNoteOf,
   TABLE_PAGE_SIZE,
 } from '@/lib/constants'
-import { paymentMethodOf, paymentNoteOf } from '@/lib/constants'
 import { printOrderReceipt } from '@/utils/receipt'
 import { formatDate, formatTime, formatPeso } from '@/utils/format'
 import { statusLabel } from '@/utils/strings'
@@ -64,7 +67,7 @@ const STATUS_FILTER_OPTIONS = [
   { value: 'ALL', label: 'All' },
   ...ORDER_STATUS_FILTERS.map((meta) => ({
     value: meta.value,
-    label: meta.value === 'READY_FOR_PICKUP' ? 'Ready' : meta.label,
+    label: meta.value === ORDER_STATUS.READY_FOR_PICKUP ? 'Ready' : meta.label,
   })),
 ]
 
@@ -79,41 +82,78 @@ const OVERDUE_AFTER_DAYS = 30
 const MODULE_NOW = Date.now()
 
 const STATUS_TONES = {
-  ORDERED: {
+  [ORDER_STATUS.ORDERED]: {
     slug: 'ordered',
     label: 'Ordered',
     chip: 'border-[var(--color-status-ordered)] bg-[var(--color-status-ordered-bg)] text-[var(--color-status-ordered)]',
   },
-  IN_LAB: {
+  [ORDER_STATUS.IN_LAB]: {
     slug: 'in-lab',
     label: 'In Lab',
     chip: 'border-[var(--color-status-in-lab)] bg-[var(--color-status-in-lab-bg)] text-[var(--color-status-in-lab)]',
   },
-  READY_FOR_PICKUP: {
+  [ORDER_STATUS.READY_FOR_PICKUP]: {
     slug: 'ready',
     label: 'Ready',
     chip: 'border-[var(--color-status-ready)] bg-[var(--color-status-ready-bg)] text-[var(--color-status-ready)]',
   },
-  CLAIMED: {
+  [ORDER_STATUS.CLAIMED]: {
     slug: 'claimed',
     label: 'Claimed',
     chip: 'border-[var(--color-status-claimed)] bg-[var(--color-status-claimed-bg)] text-[var(--color-status-claimed)]',
   },
-  CANCELLED: {
+  [ORDER_STATUS.CANCELLED]: {
     slug: 'cancelled',
     label: 'Cancelled',
     chip: 'border-[var(--color-status-cancelled)] bg-[var(--color-status-cancelled-bg)] text-[var(--color-status-cancelled)]',
   },
 }
 
+function PatientCard({ group, onClick }) {
+  return (
+    <button
+      type="button"
+      aria-label={`Open ${group.patient_name}'s ${group.orderCount} orders`}
+      className="group relative flex w-full cursor-pointer items-start gap-3.5 border-b border-champagne/60 px-4 py-4 text-left transition-colors hover:bg-gold-light/20 focus-visible:outline-2 focus-visible:outline-gold motion-reduce:transition-none"
+      onClick={onClick}
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <Avatar name={group.patient_name} className="size-9 shrink-0 text-[11px]" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-espresso">{group.patient_name}</p>
+                <p className="text-[12px] text-warmgray">
+                  {group.orderCount} {group.orderCount === 1 ? 'order' : 'orders'}
+                  {group.patient_phone ? ` · ${group.patient_phone}` : ''}
+                </p>
+              </div>
+            </div>
+          </div>
+          <span className="tabular shrink-0 text-sm font-semibold text-error">
+            {formatPeso(group.balance)}
+          </span>
+        </div>
+
+        <div className="mt-3 grid grid-cols-3 gap-2 border-t border-champagne/60 pt-3 text-[11px]">
+          <span className="text-warmgray">Latest {formatDate(group.latestOrderDate)}</span>
+          <span className="text-center text-warmgray">Total {formatPeso(group.total)}</span>
+          <span className="text-right text-success">Paid {formatPeso(group.paid)}</span>
+        </div>
+      </div>
+    </button>
+  )
+}
+
 function paymentMatches(order, filter) {
   if (filter === 'OUTSTANDING') {
-    return order.balance > 0 && !['CANCELLED', 'CLAIMED'].includes(order.status)
+    return order.balance > 0 && ![ORDER_STATUS.CANCELLED, ORDER_STATUS.CLAIMED].includes(order.status)
   }
   if (filter === 'PAID') return order.balance <= 0
   if (filter === 'OVERDUE') {
     const age = MODULE_NOW - Date.parse(`${order.order_date}T00:00:00`)
-    return order.balance > 0 && order.status !== 'CANCELLED' && age >= OVERDUE_AFTER_DAYS * 86_400_000
+    return order.balance > 0 && order.status !== ORDER_STATUS.CANCELLED && age >= OVERDUE_AFTER_DAYS * 86_400_000
   }
   return true
 }
@@ -130,23 +170,13 @@ function sortOrders(rows, sort) {
     if (sort === 'oldest') return -dateOrder
     if (sort === 'highest-balance') return right.balance - left.balance || dateOrder
     if (sort === 'oldest-unpaid') {
-      const leftUnpaid = left.balance > 0 && left.status !== 'CANCELLED'
-      const rightUnpaid = right.balance > 0 && right.status !== 'CANCELLED'
+      const leftUnpaid = left.balance > 0 && left.status !== ORDER_STATUS.CANCELLED
+      const rightUnpaid = right.balance > 0 && right.status !== ORDER_STATUS.CANCELLED
       if (leftUnpaid !== rightUnpaid) return leftUnpaid ? -1 : 1
       return Date.parse(left.order_date) - Date.parse(right.order_date)
     }
     return dateOrder
   })
-}
-
-function OrderStatusBadge({ status }) {
-  const tone = STATUS_TONES[status] ?? STATUS_TONES.ORDERED
-  return (
-    <span className={cn('inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap', tone.chip)}>
-      <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
-      {tone.label}
-    </span>
-  )
 }
 
 function FilterChips({ label, options, selected, onChange, getCount, getTone, busy = false }) {
@@ -267,7 +297,7 @@ function StatusProgress({ status, onChange, busy }) {
             )}
             <button
               type="button"
-              disabled={busy}
+              disabled={busy || index !== currentIndex + 1}
               onClick={() => onChange(meta.value)}
               aria-current={current ? 'step' : undefined}
               title={meta.description}
@@ -322,7 +352,7 @@ export default function OrdersPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { search, setSearch, deferredSearch, searchPending } = useDebouncedSearchParam()
   const requestedStatus = searchParams.get('status') ?? 'ALL'
-  const rawStatus = requestedStatus.toLowerCase() === 'ready' ? 'READY_FOR_PICKUP' : requestedStatus
+  const rawStatus = requestedStatus.toLowerCase() === 'ready' ? ORDER_STATUS.READY_FOR_PICKUP : requestedStatus
   const status = STATUS_FILTER_OPTIONS.some((option) => option.value === rawStatus) ? rawStatus : 'ALL'
   const rawPayment = (searchParams.get('payment') ?? 'ALL').toUpperCase()
   const paymentFilter = PAYMENT_FILTER_OPTIONS.some((option) => option.value === rawPayment)
@@ -333,6 +363,8 @@ export default function OrdersPage() {
   const rawSort = searchParams.get('sort') ?? 'newest'
   const sort = SORT_OPTIONS.some((option) => option.value === rawSort) ? rawSort : 'newest'
   const [selectedId, setSelectedId] = useState(null)
+  const [patientDrawerId, setPatientDrawerId] = useState(null)
+  const [cancelTarget, setCancelTarget] = useState(null)
   const [payFor, setPayFor] = useState(null)
   const [savingStatus, setSavingStatus] = useState(false)
   const [editingOrder, setEditingOrder] = useState(null)
@@ -397,16 +429,64 @@ export default function OrdersPage() {
   )
 
   const total = filteredOrders.length
-  const pageCount = Math.max(Math.ceil(total / TABLE_PAGE_SIZE), 1)
+  const patientGroups = useMemo(() => {
+    const groups = new Map()
+    for (const order of filteredOrders) {
+      const group = groups.get(order.patient_id) ?? {
+        patient_id: order.patient_id,
+        patient_name: order.patient_name,
+        patient_phone: order.patient_phone,
+        orders: [],
+        total: 0,
+        paid: 0,
+        balance: 0,
+        latestOrderDate: order.order_date,
+      }
+      group.orders.push(order)
+      group.total += Number(order.total_amount)
+      group.paid += Number(order.paid)
+      if (order.order_date > group.latestOrderDate) group.latestOrderDate = order.order_date
+      if (![ORDER_STATUS.CANCELLED, ORDER_STATUS.CLAIMED].includes(order.status)) {
+        group.balance += Math.max(Number(order.balance), 0)
+      }
+      groups.set(order.patient_id, group)
+    }
+
+    return [...groups.values()]
+      .map((group) => ({
+        ...group,
+        orderCount: group.orders.length,
+        total: Number(group.total.toFixed(2)),
+        paid: Number(group.paid.toFixed(2)),
+        balance: Number(group.balance.toFixed(2)),
+      }))
+      .sort((left, right) => {
+        if (sort === 'oldest') return left.latestOrderDate.localeCompare(right.latestOrderDate)
+        if (sort === 'highest-balance') return right.balance - left.balance || right.latestOrderDate.localeCompare(left.latestOrderDate)
+        if (sort === 'oldest-unpaid') {
+          const leftOldest = Math.min(...left.orders
+            .filter((order) => order.balance > 0 && order.status !== ORDER_STATUS.CANCELLED)
+            .map((order) => Date.parse(order.order_date)))
+          const rightOldest = Math.min(...right.orders
+            .filter((order) => order.balance > 0 && order.status !== ORDER_STATUS.CANCELLED)
+            .map((order) => Date.parse(order.order_date)))
+          if (leftOldest !== rightOldest) return leftOldest - rightOldest
+        }
+        return right.latestOrderDate.localeCompare(left.latestOrderDate)
+      })
+  }, [filteredOrders, sort])
+
+  const patientCount = patientGroups.length
+  const pageCount = Math.max(Math.ceil(patientCount / TABLE_PAGE_SIZE), 1)
   const currentPage = Math.min(page, pageCount)
-  const pageRows = filteredOrders.slice(
+  const patientPageRows = patientGroups.slice(
     (currentPage - 1) * TABLE_PAGE_SIZE,
     currentPage * TABLE_PAGE_SIZE,
   )
 
   const outstandingCount = useMemo(
     () => filteredOrders.filter(
-      (order) => order.balance > 0 && order.status !== 'CANCELLED',
+      (order) => order.balance > 0 && order.status !== ORDER_STATUS.CANCELLED,
     ).length,
     [filteredOrders],
   )
@@ -414,7 +494,7 @@ export default function OrdersPage() {
   const totalOutstanding = useMemo(
     () => filteredOrders.reduce(
       (sum, order) =>
-        ['CANCELLED', 'CLAIMED'].includes(order.status) ? sum : sum + Math.max(order.balance, 0),
+        [ORDER_STATUS.CANCELLED, ORDER_STATUS.CLAIMED].includes(order.status) ? sum : sum + Math.max(order.balance, 0),
       0,
     ),
     [filteredOrders],
@@ -473,27 +553,54 @@ export default function OrdersPage() {
 
   const handleStatusChange = updateStatusAction
 
-  const cancelOrderAction = async () => {
-    if (!selected) return
+  const cancelInProgressRef = useRef(false)
+  const refreshOrderViews = async () => {
+    invalidateClinicQueries(
+      userId,
+      'loadOrders',
+      'loadPatients',
+      'loadVisits',
+      'loadSummary',
+      'loadFollowups',
+    )
+    await orders.reload()
+  }
+
+  const cancelOrderAction = async (order = cancelTarget) => {
+    if (!order || cancelInProgressRef.current) return
+    cancelInProgressRef.current = true
     setCancelling(true)
     try {
-      await cancelOrder(selected.id)
+      await cancelOrder(order.id)
       resultDialog.success({
         title: 'Order cancelled',
-        message: `${selected.order_number} was cancelled. Its payments remain on record.`,
+        message: `${order.order_number} was cancelled. Its payments remain on record.`,
       })
       setConfirmCancel(false)
-      invalidateClinicQueries(userId, 'loadOrders', 'dashboard-summary', 'today-activity', 'today-pickups')
-      orders.reload()
+      setCancelTarget(null)
+      await refreshOrderViews()
     } catch (caught) {
+      const databaseMessage = String(caught?.cause?.message ?? caught?.message ?? '').toLowerCase()
+      if (databaseMessage.includes('already cancelled')) {
+        setConfirmCancel(false)
+        setCancelTarget(null)
+        await refreshOrderViews()
+        resultDialog.success({
+          title: 'Order already cancelled',
+          message: `${order.order_number} was already cancelled. The order list and balances have been refreshed.`,
+        })
+        return
+      }
+
       resultDialog.error({
         title: 'Could not cancel the order',
         message: caught instanceof AppError ? caught.message : 'Please check your connection and try again.',
         details: caught?.cause?.message ?? caught?.message,
         retryLabel: 'Try again',
-        onRetry: cancelOrderAction,
+        onRetry: () => cancelOrderAction(order),
       })
     } finally {
+      cancelInProgressRef.current = false
       setCancelling(false)
     }
   }
@@ -548,6 +655,7 @@ export default function OrdersPage() {
 
   return (
     <>
+      <div style={{ '--container-max': 'var(--container-page-wide)' }}>
       <PageHeader
         title="Orders & Balances"
         description="Track order status, payments, and outstanding balances."
@@ -566,8 +674,8 @@ export default function OrdersPage() {
         <div className={cn('grid gap-3 today-animate sm:grid-cols-3 transition-opacity duration-150', searchBusy && 'opacity-60')} style={{ animationDelay: '0ms' }}>
           <MiniStat
             icon={Package}
-            label="Orders in view"
-            value={total}
+            label="Patients in view"
+            value={patientCount}
             tone="neutral"
             active={status === 'ALL' && paymentFilter === 'ALL'}
             onClick={() => {
@@ -611,7 +719,7 @@ export default function OrdersPage() {
             {orders.data && !orders.error && (
               <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-gold-light/70 px-2 py-0.5 text-[11px] font-semibold text-gold-dark">
                 <PackageSearch className="size-3.5" strokeWidth={2} aria-hidden="true" />
-                Showing {total} of {orders.data?.length ?? 0} orders
+                Showing {patientCount} patients · {total} matching orders
               </span>
             )}
 
@@ -710,90 +818,85 @@ export default function OrdersPage() {
           <div className="min-h-72" />
         ) : total > 0 ? (
           <>
-            <Table>
-            <THead>
-              <tr>
-                <TH className="w-36">Order Number</TH>
-                <TH className="hidden w-32 lg:table-cell">Order Date</TH>
-                <TH>Patient</TH>
-                <TH className="w-36">Status</TH>
-                <TH className="w-32 text-right">Total</TH>
-                <TH className="hidden w-32 text-right md:table-cell">Paid</TH>
-                <TH className="w-32 text-right">Balance</TH>
-                <TH className="w-24" />
-              </tr>
-            </THead>
-            <TBody>
-              {pageRows.map((order, idx) => (
-                <TR
-                  key={order.id}
-                  className={cn(
-                    'order-row cursor-pointer',
-                    `order-row--${STATUS_TONES[order.status]?.slug ?? 'ordered'}`,
-                    idx % 2 === 0 ? 'bg-surface' : 'bg-ivory/40',
-                  )}
-                  onClick={() => setSelectedId(order.id)}
-                >
-                  <TD>
-                    <span className="tabular rounded-md bg-ivory px-2 py-0.5 text-[12px] font-semibold text-espresso ring-1 ring-champagne/70 ring-inset">
-                      {order.order_number}
-                    </span>
-                  </TD>
-                  <TD className="tabular hidden text-[13px] text-warmgray lg:table-cell">
-                    {formatDate(order.order_date)}
-                  </TD>
-                  <TD>
-                    <div className="flex items-center gap-3">
-                      <Avatar name={order.patient_name} />
-                      <span className="truncate text-sm font-medium text-espresso">
-                        {order.patient_name}
-                      </span>
-                    </div>
-                  </TD>
-                  <TD>
-                    <OrderStatusBadge status={order.status} />
-                  </TD>
-                  <TD className="tabular text-right text-[13px]">
-                    {formatPeso(order.total_amount)}
-                  </TD>
-                  <TD className="tabular hidden text-right text-[13px] text-success md:table-cell">
-                    {formatPeso(order.paid)}
-                  </TD>
-                  <TD className="text-right">
-                    {order.balance <= 0 ? (
-                      <Badge variant="success">Paid</Badge>
-                    ) : (
-                      <span className="tabular text-[13px] font-semibold text-error">
-                        {formatPeso(order.balance)}
-                      </span>
+            <div className="hidden md:block">
+              <Table>
+              <THead>
+                <tr>
+                  <TH>Patient</TH>
+                  <TH className="w-24 text-center">Orders</TH>
+                  <TH className="hidden w-36 lg:table-cell">Latest order</TH>
+                  <TH className="w-32 text-right">Combined total</TH>
+                  <TH className="hidden w-32 text-right md:table-cell">Paid</TH>
+                  <TH className="w-32 text-right">Balance due</TH>
+                </tr>
+              </THead>
+              <TBody>
+                {patientPageRows.map((group, idx) => (
+                  <TR
+                    key={group.patient_id}
+                    className={cn(
+                      'cursor-pointer transition-colors hover:bg-gold-light/20',
+                      idx % 2 === 0 ? 'bg-surface' : 'bg-ivory/40',
                     )}
-                  </TD>
-                  <TD onClick={(event) => event.stopPropagation()}>
-                    {order.balance > 0 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPayFor(order)}
-                        aria-label={`Record payment for ${order.order_number}`}
-                      >
-                        <Banknote className="size-4" aria-hidden="true" />
-                        Pay
-                      </Button>
-                    )}
-                  </TD>
-                </TR>
+                    onClick={() => setPatientDrawerId(group.patient_id)}
+                  >
+                    <TD>
+                      <div className="flex items-center gap-3">
+                        <Avatar name={group.patient_name} />
+                        <div className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-espresso">
+                            {group.patient_name}
+                          </span>
+                          {group.patient_phone && (
+                            <span className="block text-[11px] text-warmgray">{group.patient_phone}</span>
+                          )}
+                        </div>
+                      </div>
+                    </TD>
+                    <TD className="tabular text-center text-[13px] text-espresso">
+                      {group.orderCount}
+                    </TD>
+                    <TD className="tabular hidden text-[13px] text-warmgray lg:table-cell">
+                      {formatDate(group.latestOrderDate)}
+                    </TD>
+                    <TD className="tabular text-right text-[13px]">
+                      {formatPeso(group.total)}
+                    </TD>
+                    <TD className="tabular hidden text-right text-[13px] text-success md:table-cell">
+                      {formatPeso(group.paid)}
+                    </TD>
+                    <TD className="text-right">
+                      {group.balance <= 0 ? (
+                        <Badge variant="success">Paid</Badge>
+                      ) : (
+                        <span className="tabular text-[13px] font-semibold text-error">
+                          {formatPeso(group.balance)}
+                        </span>
+                      )}
+                    </TD>
+                  </TR>
+                ))}
+              </TBody>
+              </Table>
+            </div>
+
+            <div className="md:hidden divide-y divide-champagne/60">
+              {patientPageRows.map((group) => (
+                <PatientCard
+                  key={group.patient_id}
+                  group={group}
+                  onClick={() => setPatientDrawerId(group.patient_id)}
+                />
               ))}
-            </TBody>
-            </Table>
+            </div>
 
             <Pagination
               page={currentPage}
               pageCount={pageCount}
-              total={total}
+              total={patientCount}
               pageSize={TABLE_PAGE_SIZE}
-              itemLabel="order"
-              ariaLabel="orders pagination"
+              itemLabel="patient"
+              ariaLabel="patient orders pagination"
               onPageChange={setPage}
             />
           </>
@@ -824,6 +927,21 @@ export default function OrdersPage() {
       </Card>
       </div>
 
+      <PatientDrawer
+        patientId={patientDrawerId}
+        onClose={() => setPatientDrawerId(null)}
+        onSelectOrder={(order) => {
+          setPatientDrawerId(null)
+          setSelectedId(order.id)
+        }}
+        onCancelOrder={(order) => {
+          setPatientDrawerId(null)
+          setSelectedId(null)
+          setCancelTarget(order)
+          setConfirmCancel(true)
+        }}
+      />
+
       <OrderDrawer
         order={selected}
         busy={savingStatus || !isOnline}
@@ -839,7 +957,12 @@ export default function OrdersPage() {
           if (selected) setEditingOrder(selected)
         }}
         onPrint={handlePrint}
-        onCancel={() => setConfirmCancel(true)}
+        onCancel={() => {
+          setPatientDrawerId(null)
+          setSelectedId(null)
+          setCancelTarget(selected)
+          setConfirmCancel(true)
+        }}
         onVoid={(payment) =>
           setVoiding({ ...payment, order_number: selected?.order_number ?? '' })
         }
@@ -868,12 +991,16 @@ export default function OrdersPage() {
       <ConfirmDialog
         open={confirmCancel}
         title="Cancel this order?"
-        message={`${selected?.order_number ?? 'This order'} will be marked cancelled and stop counting toward outstanding balances. Its payments stay on record.`}
+        message={`${cancelTarget?.order_number ?? 'This order'} will be marked cancelled and stop counting toward outstanding balances. Its payments stay on record.`}
         confirmLabel="Cancel order"
+        cancelLabel="Keep order"
+        variant="danger"
         loading={cancelling}
-        confirmDisabled={!isOnline}
-        onConfirm={handleCancel}
-        onClose={() => setConfirmCancel(false)}
+        onConfirm={() => handleCancel(cancelTarget)}
+        onClose={() => {
+          setConfirmCancel(false)
+          setCancelTarget(null)
+        }}
       />
 
       <ConfirmDialog
@@ -886,6 +1013,7 @@ export default function OrdersPage() {
         onConfirm={handleVoid}
         onClose={() => setVoiding(null)}
       />
+      </div>
     </>
   )
 }
@@ -912,11 +1040,11 @@ function OrderDrawer({ order, busy, isOnline, onClose, onPay, onStatusChange, on
     { key: 'order-status-history' },
   )
 
-  const isCancelled = order?.status === 'CANCELLED'
+  const isCancelled = order?.status === ORDER_STATUS.CANCELLED
 
   // Derive the pickup moment from the status trail rather than trusting a
   // separately-written `claimed_at`, which may not exist on older rows.
-  const claimedEntry = history.data?.find((entry) => entry.status === 'CLAIMED')
+  const claimedEntry = history.data?.find((entry) => entry.status === ORDER_STATUS.CLAIMED)
   const claimedTime = order?.claimed_at ?? claimedEntry?.changed_at
   const claimedBy = order?.claimed_by ?? claimedEntry?.changed_by
 
@@ -1002,7 +1130,7 @@ function OrderDrawer({ order, busy, isOnline, onClose, onPay, onStatusChange, on
                   <Printer className="size-4" aria-hidden="true" />
                   Print receipt
                 </Button>
-                {!isCancelled && order.status !== 'CLAIMED' && (
+                {!isCancelled && order.status !== ORDER_STATUS.CLAIMED && (
                   <Button
                     type="button"
                     variant="outline"
@@ -1048,6 +1176,12 @@ function OrderDrawer({ order, busy, isOnline, onClose, onPay, onStatusChange, on
                   <dt className="text-[13px] text-warmgray">Amount paid</dt>
                   <dd className="tabular text-sm text-espresso">{formatPeso(order.paid)}</dd>
                 </div>
+                {Number(order.total_amount) > 0 && order.balance <= 0 && (
+                  <div className="flex justify-between">
+                    <dt className="text-[13px] text-warmgray">Payment status</dt>
+                    <dd><Badge variant="success">Completed</Badge></dd>
+                  </div>
+                )}
                 <div className="flex justify-between border-t border-champagne pt-2.5">
                   <dt className="text-[13px] font-medium text-espresso">Balance</dt>
                   <dd
@@ -1090,7 +1224,7 @@ function OrderDrawer({ order, busy, isOnline, onClose, onPay, onStatusChange, on
               </div>
             </section>
 
-            {order.status === 'CLAIMED' && (
+            {order.status === ORDER_STATUS.CLAIMED && (
               <section>
                 <DrawerLabel>Picked up</DrawerLabel>
                 <dl className="mt-3 grid gap-x-6 sm:grid-cols-2">

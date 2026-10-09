@@ -119,3 +119,14 @@ export async function cancelAppointment(appointmentId) {
     throw toAppError(caught, 'cancelAppointment')
   }
 }
+
+export async function deleteAppointment(appointmentId) {
+  try {
+    const { error } = await supabase.rpc('delete_appointment', {
+      p_appointment_id: appointmentId,
+    })
+    if (error) throw error
+  } catch (caught) {
+    throw toAppError(caught, 'deleteAppointment')
+  }
+}

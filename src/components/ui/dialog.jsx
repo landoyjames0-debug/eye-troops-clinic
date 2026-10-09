@@ -25,19 +25,19 @@ const sizeClasses = {
 }
 
 const contentClasses = [
-  'fixed left-1/2 top-1/2 z-50 w-[calc(100vw-2rem)]',
+  'fixed left-1/2 top-1/2 z-50 w-[calc(100vw-1.5rem)] sm:w-[calc(100vw-2rem)]',
   '-translate-x-1/2 -translate-y-1/2',
   'rounded-card border border-champagne bg-surface shadow-pop',
-  'max-h-[calc(100dvh-2rem)] flex flex-col',
+  'max-h-[90dvh] flex flex-col overflow-hidden',
 ].join(' ')
 
 const headerClasses =
-  'flex items-start justify-between gap-4 border-b border-champagne px-6 py-4 shrink-0'
+  'flex items-start justify-between gap-4 border-b border-champagne px-4 py-3.5 sm:px-6 sm:py-4 shrink-0'
 
-const bodyClasses = 'flex-1 overflow-y-auto px-6 py-5'
+const bodyClasses = 'flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5'
 
 const footerClasses =
-  'flex flex-wrap justify-end gap-2.5 border-t border-champagne bg-ivory/70 px-6 py-3.5 shrink-0'
+  'flex flex-wrap justify-end gap-2.5 border-t border-champagne bg-ivory/70 px-4 py-3 sm:px-6 sm:py-3.5 shrink-0'
 
 export function DialogContent({
   title,
@@ -57,8 +57,6 @@ export function DialogContent({
       />
       <DialogPrimitive.Content
         className={cn(contentClasses, sizeClasses[size], className)}
-        onOpenAutoFocus={false}
-        onCloseAutoFocus={false}
       >
         <header className={headerClasses}>
           <div className="min-w-0">
@@ -118,8 +116,6 @@ export function FullScreenDialogContent({
           'max-h-full',
           className,
         )}
-        onOpenAutoFocus={false}
-        onCloseAutoFocus={false}
       >
         <header className={cn(headerClasses, 'bg-surface/95 backdrop-blur-sm')}>
           <div className="min-w-0">

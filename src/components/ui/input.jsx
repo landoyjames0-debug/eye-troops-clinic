@@ -9,7 +9,7 @@ export function Label({ className, ...props }) {
 
 export const controlVariants = cva(
   [
-    'w-full rounded-[var(--radius-control)] border bg-white text-sm text-espresso',
+    'w-full min-h-[44px] rounded-[var(--radius-control)] border bg-surface text-sm text-espresso',
     'placeholder:text-warmgray/55 transition-[border-color,box-shadow]',
     'focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20',
     'disabled:cursor-not-allowed disabled:bg-ivory disabled:text-warmgray',

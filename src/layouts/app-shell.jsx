@@ -5,6 +5,7 @@ import {
   ClipboardList,
   LayoutDashboard,
   LogOut,
+  Menu,
   Moon,
   Pin,
   PinOff,
@@ -15,6 +16,7 @@ import {
   UserRound,
   Users,
   Wallet,
+  X,
 } from 'lucide-react'
 import { APP_NAME, APP_SUBTITLE, LOGO_PATH } from '@/lib/constants'
 import { cn } from '@/lib/utils'
@@ -34,6 +36,8 @@ const NAV_ITEMS = [
   { to: '/orders', label: 'Orders & Balances', short: 'Orders', icon: ClipboardList },
   { to: '/sales-expenses', label: 'Sales & Expenses', short: 'Sales', icon: Wallet },
 ]
+
+
 
 /**
  * Official artwork. The source is a square PNG, so `object-contain` in a square
@@ -63,6 +67,7 @@ export function BrandMark({ compact = false }) {
 
 function NavItem({ to, label, icon: Icon, expanded, onNavigate, userId }) {
   return (
+    // React Router v7 NavLink sets aria-current="page" automatically on active links.
     <NavLink
       to={to}
       onClick={onNavigate}
@@ -101,6 +106,7 @@ function NavItem({ to, label, icon: Icon, expanded, onNavigate, userId }) {
     </NavLink>
   )
 }
+
 
 function QuickPatientSearch({ expanded, onNavigate }) {
   const navigate = useNavigate()
@@ -141,11 +147,15 @@ export function AppShell() {
   const { profile, signOut, userId } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
+
   const confirm = useConfirm()
   const resultDialog = useResultDialog()
   const {
     expanded,
     pinned,
+    isMobile,
+    isTablet,
+    isDesktop,
     handlePointerEnter,
     handlePointerLeave,
     handleFocus,
@@ -163,18 +173,27 @@ export function AppShell() {
     .map((part) => part.charAt(0).toUpperCase())
     .join('')
 
+  // Lock body scroll when mobile drawer is open
+  useEffect(() => {
+    if (isMobile && expanded) {
+      const prevOverflow = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => {
+        document.body.style.overflow = prevOverflow
+      }
+    }
+  }, [isMobile, expanded])
+
   useEffect(() => {
     if (!expanded) return undefined
 
     const handlePointerDown = (event) => {
       if (sidebarRef.current?.contains(event.target)) return
-      const isDesktop = window.matchMedia('(min-width: 1024px)').matches
       if (pinned && isDesktop) return
       close(false)
     }
     const handleKeyDown = (event) => {
       if (event.key !== 'Escape') return
-      const isDesktop = window.matchMedia('(min-width: 1024px)').matches
       if (pinned && isDesktop) return
       close(false)
     }
@@ -185,12 +204,13 @@ export function AppShell() {
       document.removeEventListener('pointerdown', handlePointerDown)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [close, expanded, pinned])
+  }, [close, expanded, pinned, isDesktop])
 
   const handleNavigate = () => {
-    const isDesktop = window.matchMedia('(min-width: 1024px)').matches
     if (!isDesktop) close(true)
   }
+
+
 
   const handleSignOut = () => {
     void confirm({
@@ -228,11 +248,14 @@ export function AppShell() {
   }
 
   return (
-    <div className="app-shell-root min-h-dvh bg-ivory">
-      {/* Mobile drawer backdrop */}
-      {expanded && !pinned && (
+    <div
+      className="app-shell-root min-h-dvh bg-ivory"
+      data-sidebar-pinned={pinned ? 'true' : 'false'}
+    >
+      {/* Backdrop: shown on mobile and tablet (both use overlay, not push). */}
+      {(isMobile || isTablet) && expanded && (
         <div
-          className="sidebar-backdrop md:hidden fixed inset-0 z-45 bg-espresso/40 backdrop-blur-xs transition-opacity duration-200"
+          className="sidebar-backdrop fixed inset-0 z-45 bg-espresso/50 backdrop-blur-xs transition-opacity duration-200"
           onClick={() => close(false)}
           aria-hidden="true"
         />
@@ -251,7 +274,6 @@ export function AppShell() {
           'sidebar-rail',
           expanded && 'sidebar-rail-expanded',
           pinned && 'sidebar-rail-pinned',
-          !pinned && expanded && 'sidebar-rail-overlay',
         )}
       >
         <div className="sidebar-brand-row">
@@ -265,16 +287,27 @@ export function AppShell() {
           >
             <BrandMark compact={!expanded} />
           </button>
-          <button
-            type="button"
-            className="sidebar-pin-toggle"
-            onClick={togglePin}
-            aria-label={pinned ? 'Unpin sidebar' : 'Pin sidebar open'}
-            aria-pressed={pinned}
-            title={pinned ? 'Unpin sidebar' : 'Pin sidebar open'}
-          >
-            {pinned ? <PinOff className="size-4.5" aria-hidden="true" /> : <Pin className="size-4.5" aria-hidden="true" />}
-          </button>
+          {isDesktop ? (
+            <button
+              type="button"
+              className="sidebar-pin-toggle"
+              onClick={togglePin}
+              aria-label={pinned ? 'Unpin sidebar' : 'Pin sidebar open'}
+              aria-pressed={pinned}
+              title={pinned ? 'Unpin sidebar' : 'Pin sidebar open'}
+            >
+              {pinned ? <PinOff className="size-4.5" aria-hidden="true" /> : <Pin className="size-4.5" aria-hidden="true" />}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="sidebar-close-toggle"
+              onClick={() => close(false)}
+              aria-label="Close sidebar"
+            >
+              <X className="size-4.5" aria-hidden="true" />
+            </button>
+          )}
         </div>
 
         <QuickPatientSearch expanded={expanded} onNavigate={handleNavigate} />
@@ -350,20 +383,31 @@ export function AppShell() {
       </aside>
 
       <header className="mobile-app-header">
-        <BrandMark />
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={toggle}
+            aria-label={expanded ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={expanded}
+            className="flex size-10 items-center justify-center rounded-control text-espresso hover:bg-ivory active:scale-95 transition"
+          >
+            <Menu className="size-5" aria-hidden="true" />
+          </button>
+          <BrandMark />
+        </div>
         <div className="flex items-center gap-1">
           <ThemeToggle />
           <NavLink
             to="/profile"
             aria-label="Profile and settings"
-            className="rounded-control p-2 text-warmgray transition-colors hover:bg-ivory hover:text-espresso"
+            className="flex size-10 items-center justify-center rounded-control text-warmgray transition-colors hover:bg-ivory hover:text-espresso"
           >
             <UserRound className="size-4.5" strokeWidth={1.7} aria-hidden="true" />
           </NavLink>
           <button
             type="button"
             onClick={handleSignOut}
-            className="rounded-control p-2 text-warmgray transition-colors hover:bg-ivory hover:text-espresso"
+            className="flex size-10 items-center justify-center rounded-control text-warmgray transition-colors hover:bg-ivory hover:text-espresso"
             aria-label="Sign out"
           >
             <LogOut className="size-4.5" strokeWidth={1.7} aria-hidden="true" />
@@ -371,50 +415,16 @@ export function AppShell() {
         </div>
       </header>
 
-      {/* Bottom tab bar — mobile. Five destinations fit without scrolling, so
-          the primary navigation never hides off-screen. */}
-      <nav
-        aria-label="Primary navigation"
-        className="mobile-bottom-navigation"
-      >
-        {NAV_ITEMS.map(({ to, short, icon: Icon }) => (
-          <NavLink
-            key={to}
-            onClick={() => close(true)}
-            to={to}
-            className={({ isActive }) =>
-              cn(
-                'mobile-tab-link',
-                isActive && 'mobile-tab-link-active',
-              )
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <span
-                  className={cn(
-                    'mobile-tab-indicator',
-                    isActive ? 'opacity-100' : 'opacity-0',
-                  )}
-                  aria-hidden="true"
-                />
-                <Icon
-                  className="size-5"
-                  fill={isActive ? 'currentColor' : 'none'}
-                  fillOpacity={isActive ? 0.14 : 0}
-                  strokeWidth={isActive ? 2.1 : 1.8}
-                  aria-hidden="true"
-                />
-                <span>{short}</span>
-              </>
-            )}
-          </NavLink>
-        ))}
-      </nav>
 
-      <main className="app-shell-main min-w-0 flex-1" style={{ '--sidebar-main-offset': pinned ? '245px' : '72px' }}>
-        {/* `pb-24` clears the fixed mobile tab bar. */}
-        <div className="mx-auto w-full max-w-330 px-4 pt-6 pb-24 sm:px-6 lg:px-10 lg:pt-9 lg:pb-14">
+
+      <main
+        className="app-shell-main min-w-0 flex-1"
+        // On desktop the main content offset follows `data-sidebar` on
+        // `.app-shell-root` (see index.css): 80px collapsed, the full expanded
+        // width when hovered or pinned. The content slides right and narrows to
+        // make room for the expanded sidebar instead of sitting under it.
+      >
+        <div className="mx-auto w-full px-4 pt-6 pb-8 sm:px-6 lg:px-8 xl:px-10 lg:pt-9 lg:pb-14 pb-safe" style={{ maxWidth: 'var(--container-max)' }}>
           <Outlet />
         </div>
       </main>

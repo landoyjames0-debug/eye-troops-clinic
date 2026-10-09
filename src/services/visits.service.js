@@ -1,58 +1,27 @@
 import { supabase, unwrap } from '@/lib/supabase'
 import { toAppError } from '@/utils/errors'
 
-function blank(value) {
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : null
-}
-
-function prescriptionPayload(visitId, input) {
-  return {
-    visit_id: visitId,
-    od_sph: blank(input.od_sph),
-    od_cyl: blank(input.od_cyl),
-    od_axis: blank(input.od_axis),
-    od_add: blank(input.od_add),
-    od_pd: blank(input.od_pd),
-    os_sph: blank(input.os_sph),
-    os_cyl: blank(input.os_cyl),
-    os_axis: blank(input.os_axis),
-    os_add: blank(input.os_add),
-    os_pd: blank(input.os_pd),
-  }
-}
-
 /** True when at least one prescription cell was filled in. */
 export function hasPrescription(input) {
   return Object.values(input).some((value) => value.trim().length > 0)
 }
 
-export async function createVisit(input) {
-  const visitPayload = {
-    patient_id: input.patient_id,
-    visit_date: input.visit_date,
-    notes: blank(input.notes),
-  }
-
+export async function createVisitOrderTransaction(input) {
   try {
-    const visit = unwrap(
-      await supabase.from('visits').insert(visitPayload).select('*').single(),
-    )
-
-    if (input.prescription) {
-      try {
-        await supabase
-          .from('prescriptions')
-          .insert(prescriptionPayload(visit.id, input.prescription))
-      } catch (prescriptionError) {
-        // The visit must not be left without its prescription — roll it back so
-        // the two records stay consistent.
-        await supabase.from('visits').delete().eq('id', visit.id)
-        throw prescriptionError
-      }
-    }
-
-    return visit
+    return unwrap(await supabase.rpc('create_visit_order_transaction', {
+      p_patient_id: input.patient_id ?? null,
+      p_new_patient: input.new_patient ?? null,
+      p_visit_date: input.visit_date,
+      p_visit_notes: input.notes,
+      p_prescription: input.prescription,
+      p_description: input.description,
+      p_total_amount: input.total_amount,
+      p_order_date: input.order_date,
+      p_initial_payment: input.initial_payment,
+      p_payment_date: input.payment_date,
+      p_payment_notes: input.payment_notes,
+      p_idempotency_key: input.idempotency_key,
+    }))
   } catch (caught) {
     throw toAppError(caught, 'saveVisit')
   }

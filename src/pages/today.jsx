@@ -12,10 +12,10 @@ import {
   ChevronUp,
   Clock,
   Copy,
+  HandCoins,
   PackageCheck,
   Phone,
   PhoneCall,
-  PiggyBank,
   PlusCircle,
   Receipt,
   TrendingDown,
@@ -240,6 +240,55 @@ function CollectionBar({ method, amount, maxAmount }) {
         </div>
       </div>
     </div>
+  )
+}
+
+/* ── activity card (mobile) ─────────────────────────────────────── */
+
+function ActivityCard({ row }) {
+  const rowDestination = row.order_id
+    ? `/orders?order=${encodeURIComponent(row.order_id)}`
+    : row.patient_id
+      ? `/patients?patient=${encodeURIComponent(row.patient_id)}`
+      : null
+  return (
+    <article className="group relative flex cursor-pointer items-start gap-3.5 rounded-xl border border-transparent px-4 py-4 transition-all hover:-translate-y-0.5 hover:border-gold/70 hover:bg-gold-light/30 hover:shadow-raised focus-within:border-gold/70 focus-within:bg-gold-light/20 motion-reduce:transition-none">
+      {rowDestination && (
+        <Link
+          to={rowDestination}
+          aria-label={`View ${row.transaction} for ${row.patient}`}
+          className="absolute inset-0 z-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-inset"
+        />
+      )}
+      <Avatar name={row.patient} className="size-9 text-[11px] mt-0.5" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            {rowDestination ? (
+              <Link to={rowDestination} className="relative z-10 inline-block max-w-full truncate text-[13.5px] font-semibold text-espresso underline-offset-2 hover:text-gold-dark hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-gold">
+                {row.patient}
+              </Link>
+            ) : (
+              <span className="text-[13.5px] font-semibold text-espresso">{row.patient}</span>
+            )}
+            <p className="mt-0.5 text-[12px] text-warmgray tabular">{row.transaction}</p>
+          </div>
+          <StatusBadge status={row.status} />
+        </div>
+
+        <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+          <span className="inline-flex items-center gap-1.5 text-[12px]">
+            <span className="text-warmgray">Amount:</span>
+            <span className="tabular font-semibold text-espresso">{formatPeso(row.amount)}</span>
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-[12px]">
+            <span className="text-warmgray">Time:</span>
+            <span className="tabular text-espresso">{formatTime(row.at)}</span>
+          </span>
+        </div>
+      </div>
+      <ArrowUpRight className="pointer-events-none absolute right-3 bottom-3 size-4 text-gold-dark opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none" aria-hidden="true" />
+    </article>
   )
 }
 
@@ -545,6 +594,7 @@ export default function TodayPage() {
 
   return (
     <>
+      <div style={{ '--container-max': 'var(--container-page-wide)' }}>
       {/* ── Page header ───────────────────────────────────────── */}
       <PageHeader
         title="Today"
@@ -569,7 +619,7 @@ export default function TodayPage() {
       <div
         className="grid gap-4 today-animate"
         style={{
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
           animationDelay: '0ms',
         }}
       >
@@ -631,7 +681,7 @@ export default function TodayPage() {
       <div
         className="grid gap-4 today-animate"
         style={{
-          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
           animationDelay: '60ms',
         }}
       >
@@ -646,7 +696,7 @@ export default function TodayPage() {
               contextLabel="OUTSTANDING"
               label="Unpaid Balances"
               value={formatPeso(data?.unpaidBalances ?? 0)}
-              icon={PiggyBank}
+              icon={HandCoins}
               tone="warning"
               description="Outstanding"
               to="/orders?payment=OUTSTANDING"
@@ -717,67 +767,81 @@ export default function TodayPage() {
               </div>
             ) : allActivity.length > 0 ? (
               <>
-                <Table>
-                  <THead>
-                    <tr>
-                      <TH>Patient</TH>
-                      <TH>Transaction</TH>
-                      <TH className="text-right">Amount</TH>
-                      <TH>Status</TH>
-                      <TH className="w-20 text-right">Time</TH>
-                    </tr>
-                  </THead>
-                  <TBody>
-                    {paginatedActivity.map((row, idx) => {
-                      const rowDestination = row.order_id
-                        ? `/orders?order=${encodeURIComponent(row.order_id)}`
-                        : row.patient_id
-                          ? `/patients?patient=${encodeURIComponent(row.patient_id)}`
-                          : null
-                      return (
-                      <TR key={row.id} className={cn(rowDestination && 'relative group cursor-pointer transition-colors hover:bg-gold-light/30', idx % 2 === 0 ? 'bg-surface' : 'bg-ivory/40')}>
-                        <TD>
-                          <div className="flex items-center gap-2.5">
-                            <Avatar name={row.patient} className="size-7 text-[10px]" />
-                            {row.patient_id ? (
-                              <Link to={`/patients?patient=${encodeURIComponent(row.patient_id)}`} className="relative z-10 truncate font-medium text-espresso underline-offset-2 hover:text-gold-dark hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-gold">
-                                {row.patient}
+                <div className="hidden md:block">
+                  <Table>
+                    <THead>
+                      <tr>
+                        <TH>Patient</TH>
+                        <TH>Transaction</TH>
+                        <TH className="text-right">Amount</TH>
+                        <TH>Status</TH>
+                        <TH className="w-20 text-right">Time</TH>
+                      </tr>
+                    </THead>
+                    <TBody>
+                      {paginatedActivity.map((row, idx) => {
+                        const rowDestination = row.order_id
+                          ? `/orders?order=${encodeURIComponent(row.order_id)}`
+                          : row.patient_id
+                            ? `/patients?patient=${encodeURIComponent(row.patient_id)}`
+                            : null
+                        return (
+                        <TR key={row.id} className={cn(rowDestination && 'relative group cursor-pointer transition-colors hover:bg-gold-light/30', idx % 2 === 0 ? 'bg-surface' : 'bg-ivory/40')}>
+                          <TD>
+                            <div className="flex items-center gap-2.5">
+                              <Avatar name={row.patient} className="size-7 text-[10px]" />
+                              {row.patient_id ? (
+                                <Link to={`/patients?patient=${encodeURIComponent(row.patient_id)}`} className="relative z-10 truncate font-medium text-espresso underline-offset-2 hover:text-gold-dark hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-gold">
+                                  {row.patient}
+                                </Link>
+                              ) : <span className="font-medium">{row.patient}</span>}
+                            </div>
+                          </TD>
+                          <TD className="text-[13px] text-warmgray">
+                            {rowDestination ? (
+                              <Link
+                                to={rowDestination}
+                                aria-label={`View ${row.transaction} for ${row.patient}`}
+                                className="after:absolute after:inset-0 after:z-0 after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-gold group-hover:text-gold-dark"
+                              >
+                                {row.transaction}
                               </Link>
-                            ) : <span className="font-medium">{row.patient}</span>}
-                          </div>
-                        </TD>
-                        <TD className="text-[13px] text-warmgray">
-                          {rowDestination ? (
-                            <Link
-                              to={rowDestination}
-                              aria-label={`View ${row.transaction} for ${row.patient}`}
-                              className="after:absolute after:inset-0 after:z-0 after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-gold group-hover:text-gold-dark"
-                            >
-                              {row.transaction}
-                            </Link>
-                          ) : row.transaction}
-                          {rowDestination && <ArrowUpRight className="pointer-events-none absolute right-3 top-1/2 z-0 size-4 -translate-y-1/2 text-gold-dark opacity-0 transition-opacity group-hover:opacity-100 motion-reduce:transition-none" aria-hidden="true" />}
-                        </TD>
-                        <TD className="tabular text-right text-[13px] font-medium">
-                          {formatPeso(row.amount)}
-                        </TD>
-                        <TD>
-                          <StatusBadge status={row.status} />
-                        </TD>
-                        <TD className="tabular text-right text-[13px] text-warmgray">
-                          {formatTime(row.at)}
-                        </TD>
-                      </TR>
-                      )
-                    })}
-                  </TBody>
-                </Table>
+                            ) : row.transaction}
+                            {rowDestination && <ArrowUpRight className="pointer-events-none absolute right-3 top-1/2 z-0 size-4 -translate-y-1/2 text-gold-dark opacity-0 transition-opacity group-hover:opacity-100 motion-reduce:transition-none" aria-hidden="true" />}
+                          </TD>
+                          <TD className="tabular text-right text-[13px] font-medium">
+                            {formatPeso(row.amount)}
+                          </TD>
+                          <TD>
+                            <StatusBadge status={row.status} />
+                          </TD>
+                          <TD className="tabular text-right text-[13px] text-warmgray">
+                            {formatTime(row.at)}
+                          </TD>
+                        </TR>
+                        )
+                      })}
+                    </TBody>
+                  </Table>
 
-                <Pagination
-                  currentPage={activityPage}
-                  totalPages={activityTotalPages}
-                  onPageChange={setActivityPage}
-                />
+                  <Pagination
+                    currentPage={activityPage}
+                    totalPages={activityTotalPages}
+                    onPageChange={setActivityPage}
+                  />
+                </div>
+
+                {/* Mobile card view */}
+                <div className="md:hidden divide-y divide-champagne/50">
+                  {paginatedActivity.map((row) => (
+                    <ActivityCard key={row.id} row={row} />
+                  ))}
+                  <Pagination
+                    currentPage={activityPage}
+                    totalPages={activityTotalPages}
+                    onPageChange={setActivityPage}
+                  />
+                </div>
               </>
             ) : (
               <EmptyState
@@ -1055,6 +1119,7 @@ export default function TodayPage() {
           )}
         </Card>
       </section>
+      </div>
       </div>
     </>
   )

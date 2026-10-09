@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { App } from './app'
+import { PwaUpdatePrompt } from './components/pwa-update-prompt'
 import { AuthProvider } from './hooks/use-auth'
 import { UserQueryPersistence } from './hooks/use-query-persistence'
 import { ConfirmProvider } from './hooks/use-confirm'
@@ -26,6 +27,7 @@ createRoot(container).render(
               <ResultDialogProvider>
                 <SupabaseHealthProvider>
                   <App />
+                  <PwaUpdatePrompt />
                 </SupabaseHealthProvider>
               </ResultDialogProvider>
             </ConfirmProvider>

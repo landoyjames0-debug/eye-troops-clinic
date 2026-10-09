@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Clock3, RefreshCw } from 'lucide-react'
+import { Clock3, RefreshCw, X } from 'lucide-react'
 import { Select } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ErrorNote, Skeleton } from '@/components/ui/feedback'
@@ -49,6 +49,7 @@ export function TimeSlotPicker({ date, value, duration, onChange, error, disable
   const [reloadToken, setReloadToken] = useState(0)
   const [loadedKey, setLoadedKey] = useState('')
   const [popoverPosition, setPopoverPosition] = useState(null)
+  const [isMobile, setIsMobile] = useState(false)
   const slotRefs = useRef([])
   const rootRef = useRef(null)
   const triggerRef = useRef(null)
@@ -56,6 +57,13 @@ export function TimeSlotPicker({ date, value, duration, onChange, error, disable
   const wasOpenRef = useRef(false)
   const numericDuration = Number(duration)
   const availabilityKey = `${date}:${excludeAppointmentId ?? ''}:${reloadToken}:${refreshKey}`
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 640)
+    checkMobile()
+    window.addEventListener('resize', checkMobile, { passive: true })
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -223,19 +231,128 @@ export function TimeSlotPicker({ date, value, duration, onChange, error, disable
 
       {slotsOpen && date && createPortal(
         <div className="pointer-events-none fixed inset-0 z-120">
-          <div
-            ref={popoverRef}
-            role="dialog"
-            aria-label="Choose appointment time"
-            style={popoverPosition ? { position: 'fixed', ...popoverPosition } : undefined}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') {
-                event.preventDefault()
-                closeSlots()
-              }
-            }}
-            className="pointer-events-auto max-w-[calc(100vw-16px)] rounded-control border border-champagne bg-surface p-2 shadow-pop motion-reduce:animate-none"
-          >
+          {isMobile ? (
+            /* Mobile Bottom Sheet */
+            <div className="flex flex-col justify-end">
+              <div
+                className="fixed inset-0 bg-espresso/40 backdrop-blur-xs transition-opacity duration-200"
+                onClick={closeSlots}
+                aria-hidden="true"
+              />
+              <div
+                ref={popoverRef}
+                role="dialog"
+                aria-label="Choose appointment time"
+                className="relative z-160 w-full rounded-t-2xl border-t border-champagne bg-surface p-4 shadow-pop transition-transform duration-200 flex flex-col max-h-[75vh] motion-reduce:transition-none"
+              >
+                {/* Pull handle */}
+                <div className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-champagne" aria-hidden="true" />
+                <div className="mb-3 flex items-center justify-between border-b border-champagne/60 pb-2">
+                  <h3 className="text-sm font-semibold text-espresso">Choose appointment time</h3>
+                  <button
+                    type="button"
+                    onClick={closeSlots}
+                    className="flex size-8 items-center justify-center rounded-control text-warmgray hover:bg-ivory hover:text-espresso"
+                    aria-label="Close"
+                  >
+                    <X className="size-4" aria-hidden="true" />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  {customOpen ? (
+                    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-1.5 pb-4">
+                      <Select id="custom-time-hour" label="Hour" value={customHour} onChange={(event) => setCustomHour(event.target.value)} disabled={disabled} options={Array.from({ length: 12 }, (_, index) => String(index + 1))} className="min-w-0 bg-surface px-2 pr-7 text-[13px]" />
+                      <Select id="custom-time-minute" label="Minute" value={customMinute} onChange={(event) => setCustomMinute(event.target.value)} disabled={disabled} options={['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55']} className="min-w-0 bg-surface px-2 pr-7 text-[13px]" />
+                      <Select id="custom-time-period" label="AM/PM" value={customPeriod} onChange={(event) => setCustomPeriod(event.target.value)} disabled={disabled} options={['AM', 'PM']} className="min-w-0 bg-surface px-2 pr-7 text-[13px]" />
+                      <Button type="button" size="sm" disabled={!date || disabled} onClick={changeCustomTime} className="h-11 min-h-11 px-2.5">Use</Button>
+                    </div>
+                  ) : (
+                    <div
+                      role="group"
+                      aria-label="Available appointment time slots"
+                      aria-invalid={error ? 'true' : undefined}
+                      aria-describedby={error ? 'appointment-time-error' : undefined}
+                      aria-busy={loading || undefined}
+                      onKeyDown={(event) => {
+                        if (!['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp'].includes(event.key)) return
+                        event.preventDefault()
+                        const direction = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1
+                        let next = focusedSlotIndex
+                        for (let attempt = 0; attempt < slots.length; attempt += 1) {
+                          next = (next + direction + slots.length) % slots.length
+                          if (!slots[next].booked && !slots[next].past) break
+                        }
+                        setFocusIndex(next)
+                        slotRefs.current[next]?.focus()
+                      }}
+                      className="max-h-[50vh] overflow-y-auto"
+                    >
+                      {loading ? (
+                        <div className="grid grid-cols-[repeat(auto-fill,minmax(88px,1fr))] gap-1.5">
+                          {Array.from({ length: 12 }, (_, index) => <Skeleton key={index} className="h-10 w-full motion-reduce:animate-none" />)}
+                        </div>
+                      ) : loadError ? (
+                        <div className="space-y-2">
+                          <ErrorNote message={loadError} />
+                          <Button type="button" variant="outline" size="sm" onClick={() => setReloadToken((token) => token + 1)}><RefreshCw className="size-3.5" aria-hidden="true" /> Try again</Button>
+                        </div>
+                      ) : slots.length === 0 || availableCount === 0 ? (
+                        <p className="py-2 text-sm text-warmgray">No slots available on this day. Try another date.</p>
+                      ) : (
+                        <div className="grid grid-cols-[repeat(auto-fill,minmax(88px,1fr))] gap-1.5">
+                          {slots.map((slot, index) => {
+                            const unavailable = slot.booked || slot.past
+                            return (
+                              <button
+                                key={slot.time}
+                                ref={(element) => { slotRefs.current[index] = element }}
+                                type="button"
+                                title={slot.booked ? 'Already booked' : slot.past ? 'This time has passed' : undefined}
+                                aria-pressed={value === slot.time}
+                                disabled={disabled || unavailable}
+                                tabIndex={index === focusedSlotIndex ? 0 : -1}
+                                onFocus={() => setFocusIndex(index)}
+                                onClick={() => { onChange(slot.time); setSlotsOpen(false) }}
+                                className={cn(
+                                  'h-10 min-w-0 whitespace-nowrap rounded-control border px-2.5 text-[13px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-gold disabled:cursor-not-allowed disabled:bg-ivory disabled:text-warmgray/55 motion-reduce:transition-none',
+                                  value === slot.time ? 'border-gold bg-gold text-espresso' : 'border-champagne bg-surface text-espresso hover:border-gold/60 hover:bg-gold-light/50',
+                                )}
+                              >
+                                {formatTime(slot.date)}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div className="mt-2 border-t border-champagne pt-1">
+                    <button
+                      type="button"
+                      className="min-h-10 px-2 text-xs font-medium text-gold-dark hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold motion-reduce:transition-none"
+                      onClick={() => setCustomOpen((current) => !current)}
+                    >
+                      {customOpen ? 'Back to available slots' : 'Custom time'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Desktop Popover */
+            <div
+              ref={popoverRef}
+              role="dialog"
+              aria-label="Choose appointment time"
+              style={popoverPosition ? { position: 'fixed', ...popoverPosition } : undefined}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault()
+                  closeSlots()
+                }
+              }}
+              className="pointer-events-auto max-w-[calc(100vw-16px)] rounded-control border border-champagne bg-surface p-2 shadow-pop motion-reduce:animate-none"
+            >
             {customOpen ? (
               <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-1.5">
                 <Select id="custom-time-hour" label="Hour" value={customHour} onChange={(event) => setCustomHour(event.target.value)} disabled={disabled} options={Array.from({ length: 12 }, (_, index) => String(index + 1))} className="min-w-0 bg-surface px-2 pr-7 text-[13px]" />
@@ -313,8 +430,9 @@ export function TimeSlotPicker({ date, value, duration, onChange, error, disable
               </button>
             </div>
           </div>
-        </div>,
-        document.body,
+        )}
+      </div>,
+      document.body,
       )}
       {error && <p id="appointment-time-error" className="mt-1.5 text-xs text-error" role="alert">{error}</p>}
     </div>

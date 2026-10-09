@@ -194,6 +194,7 @@ export default function PatientsPage() {
 
   return (
     <>
+      <div style={{ '--container-max': 'var(--container-page-wide)' }}>
       <PageHeader
         title="Patients"
         description="View patient records, visit history, and balances."
@@ -528,6 +529,7 @@ export default function PatientsPage() {
           patients.reload()
         }}
       />
+      </div>
     </>
   )
 }

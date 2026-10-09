@@ -107,9 +107,13 @@ export function ConfirmDialog({
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-message"
-        className="confirm-dialog w-full max-w-md overflow-hidden rounded-card border border-champagne bg-surface shadow-pop"
+        className="confirm-dialog flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-card border border-champagne bg-surface shadow-pop sm:rounded-card md:rounded-card"
+        style={{
+          // Mobile bottom sheet: full width, bottom anchored, rounded top only
+          // Desktop: centered, rounded all corners
+        }}
       >
-        <div className="flex items-start gap-3 border-b border-champagne px-5 py-4">
+        <div className="flex flex-1 items-start gap-3 overflow-y-auto border-b border-champagne px-5 py-4">
           <span
             className={`flex size-11 shrink-0 items-center justify-center rounded-full ${variantMeta.iconClassName}`}
             aria-hidden="true"
@@ -128,12 +132,12 @@ export function ConfirmDialog({
         </div>
 
         {error && (
-          <div className="border-b border-error/20 bg-error/5 px-5 py-3 text-sm text-error" role="alert">
+          <div className="shrink-0 border-b border-error/20 bg-error/5 px-5 py-3 text-sm text-error" role="alert">
             {error}
           </div>
         )}
 
-        <div className="flex items-center justify-end gap-2.5 px-5 py-4">
+        <div className="flex shrink-0 items-center justify-end gap-2.5 px-5 py-4">
           <button
             ref={cancelButtonRef}
             type="button"

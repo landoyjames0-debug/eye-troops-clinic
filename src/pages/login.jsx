@@ -181,7 +181,7 @@ export default function LoginPage() {
         features={LOGIN_COPY.features}
       />
 
-      <section className="login-form-panel relative flex min-h-[calc(100dvh-0px)] items-center justify-center px-4 py-6 sm:px-8 sm:py-10 lg:min-h-dvh lg:px-12 xl:px-20">
+      <section className="login-form-panel relative flex flex-1 items-center justify-center px-4 py-6 sm:px-8 sm:py-10 lg:min-h-dvh lg:px-12 xl:px-20">
         <div className="relative w-full max-w-110">
           <div
             className={`login-card overflow-hidden rounded-3xl border border-champagne/80 bg-surface/95 shadow-raised backdrop-blur-sm${shake ? ' login-card-shake' : ''}`}

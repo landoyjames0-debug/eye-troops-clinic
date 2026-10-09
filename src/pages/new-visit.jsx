@@ -3,16 +3,13 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
   Banknote,
-  Building2,
   Check,
   ClipboardList,
   Glasses,
   Loader2,
-  Minus,
-  MoreHorizontal,
+  Pencil,
   Plus,
   Search,
-  Smartphone,
   Stethoscope,
   Trash2,
   UserPlus,
@@ -23,22 +20,20 @@ import { PageHeader, SectionTitle, Avatar } from '@/components/layout/page-heade
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea, controlVariants, Label } from '@/components/ui/input'
-import { ChoiceGroup } from '@/components/ui/choice-group'
 import { VisitDateTimeField } from '@/components/visits/visit-datetime-field'
-import { ErrorNote, Skeleton } from '@/components/ui/feedback'
+import { ErrorNote, Skeleton, EmptyState } from '@/components/ui/feedback'
+import { OrderItemDrawer } from '@/components/visits/order-item-drawer'
+import { PaymentMethodDrawer, paymentMethodOption } from '@/components/visits/payment-method-drawer'
 import { useAsync } from '@/hooks/use-async'
 import { useAuth } from '@/hooks/use-auth'
 import { useConfirm } from '@/hooks/use-confirm'
 import { useResultDialog } from '@/hooks/use-result-dialog'
 import { useSupabaseHealth } from '@/hooks/use-supabase-health'
-import { createPatient, findPatientByMobile, listPatientRoster } from '@/services/patients.service'
+import { findPatientByMobile, listPatientRoster } from '@/services/patients.service'
 import { invalidateClinicQueries } from '@/lib/query-client'
-import { createVisit, hasPrescription } from '@/services/visits.service'
-import { createOrder } from '@/services/orders.service'
-import { createPayment, paymentTypeFor } from '@/services/payments.service'
+import { createVisitOrderTransaction, hasPrescription } from '@/services/visits.service'
+import { paymentTypeFor } from '@/services/payments.service'
 import {
-  LENS_TYPES,
-  ORDER_ITEM_TYPES,
   describeOrderItems,
   describePayment,
 } from '@/lib/constants'
@@ -71,14 +66,6 @@ const RX_COLUMNS = [
   { key: 'pd', label: 'PD', placeholder: '31.0' },
 ]
 
-const PAYMENT_METHOD_OPTIONS = [
-  { value: 'Cash', label: 'Cash', icon: Banknote },
-  { value: 'GCash', label: 'GCash', icon: Smartphone },
-  { value: 'Maya', label: 'Maya', icon: Smartphone },
-  { value: 'Bank Transfer', label: 'Bank transfer', icon: Building2 },
-  { value: 'Other', label: 'Other', icon: MoreHorizontal },
-]
-
 const FLOW_STEPS = [
   { label: 'Patient', icon: UserRound },
   { label: 'Visit', icon: Stethoscope },
@@ -90,7 +77,9 @@ const FLOW_STEPS = [
 const blankItem = () => ({
   key: `item-${Math.random().toString(36).slice(2)}`,
   type: 'Glasses',
+  name: '',
   lensType: 'Single Vision',
+  lensOption: 'Not applicable',
   quantity: '1',
   unitPrice: '',
 })
@@ -99,6 +88,16 @@ function itemTotal(item) {
   const quantity = Math.max(parseInt(item.quantity, 10) || 0, 0)
   const price = Number(item.unitPrice) || 0
   return quantity * price
+}
+
+function itemLabel(item) {
+  return item.name?.trim() || item.type
+}
+
+function itemDetails(item) {
+  return [item.lensType, item.lensOption]
+    .filter((value) => value && value !== 'Not applicable')
+    .join(' · ')
 }
 
 function FlowStepper() {
@@ -200,56 +199,96 @@ function PrescriptionGrid({ rx, setRx }) {
   ]
 
   return (
-    <div className="overflow-x-auto rounded-control border border-champagne">
-      <table className="w-full min-w-130 border-collapse text-sm">
-        <thead>
-          <tr className="border-b border-champagne bg-ivory/70">
-            <th className="w-16 px-3 py-2.5 text-left text-[11px] font-semibold tracking-wide text-warmgray uppercase">
-              Eye
-            </th>
-            {RX_COLUMNS.map((col) => (
-              <th
-                key={col.key}
-                className="px-2 py-2.5 text-center text-[11px] font-semibold tracking-wide text-warmgray uppercase"
-              >
-                {col.label}
+    <div className="space-y-4">
+      {/* Mobile: stacked cards per eye */}
+      <div className="md:hidden space-y-4">
+        {eyes.map(({ prefix, label, hint }) => (
+          <div key={prefix} className="rounded-control border border-champagne bg-surface p-4">
+            <h4 className="mb-3 flex items-center gap-2 font-display text-[13px] font-bold text-gold-dark">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-gold-light/50 text-gold-dark">{label}</span>
+              <span className="sr-only">{hint}</span>
+            </h4>
+            <div className="grid grid-cols-3 gap-2">
+              {RX_COLUMNS.map((col) => (
+                <div key={`${prefix}_${col.key}`} className="col-span-1">
+                  <Label htmlFor={`${prefix}_${col.key}`} className="sr-only">
+                    {label} {col.label}
+                  </Label>
+                  <input
+                    id={`${prefix}_${col.key}`}
+                    type="text"
+                    inputMode="decimal"
+                    value={rx[`${prefix}_${col.key}`]}
+                    onChange={(event) =>
+                      setRx((prev) => ({ ...prev, [`${prefix}_${col.key}`]: event.target.value }))
+                    }
+                    placeholder={col.placeholder}
+                    className={cn(
+                      controlVariants({ invalid: false }),
+                      'min-h-[44px] tabular text-center text-sm',
+                    )}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="hidden md:block overflow-x-auto rounded-control border border-champagne">
+        <table className="w-full min-w-130 border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-champagne bg-ivory/70">
+              <th className="w-16 px-3 py-2.5 text-left text-[11px] font-semibold tracking-wide text-warmgray uppercase">
+                Eye
               </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {eyes.map(({ prefix, label, hint }) => (
-            <tr key={prefix} className="border-b border-champagne/70 last:border-b-0">
-              <td className="px-3 py-2">
-                <span className="font-display text-[13px] font-bold text-gold-dark">{label}</span>
-                <span className="sr-only">{hint}</span>
-              </td>
-              {RX_COLUMNS.map((col) => {
-                const fieldKey = `${prefix}_${col.key}`
-                return (
-                  <td key={fieldKey} className="px-2 py-2">
-                    <Label htmlFor={fieldKey} className="sr-only">
-                      {label} {col.label}
-                    </Label>
-                    <input
-                      id={fieldKey}
-                      value={rx[fieldKey]}
-                      onChange={(event) =>
-                        setRx((prev) => ({ ...prev, [fieldKey]: event.target.value }))
-                      }
-                      placeholder={col.placeholder}
-                      className={cn(
-                        controlVariants({ invalid: false }),
-                        'h-9 tabular text-center text-[13px]',
-                      )}
-                    />
-                  </td>
-                )
-              })}
+              {RX_COLUMNS.map((col) => (
+                <th
+                  key={col.key}
+                  className="px-2 py-2.5 text-center text-[11px] font-semibold tracking-wide text-warmgray uppercase"
+                >
+                  {col.label}
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {eyes.map(({ prefix, label, hint }) => (
+              <tr key={prefix} className="border-b border-champagne/70 last:border-b-0">
+                <td className="px-3 py-2">
+                  <span className="font-display text-[13px] font-bold text-gold-dark">{label}</span>
+                  <span className="sr-only">{hint}</span>
+                </td>
+                {RX_COLUMNS.map((col) => {
+                  const fieldKey = `${prefix}_${col.key}`
+                  return (
+                    <td key={fieldKey} className="px-2 py-2">
+                      <Label htmlFor={fieldKey} className="sr-only">
+                        {label} {col.label}
+                      </Label>
+                      <input
+                        id={fieldKey}
+                        type="text"
+                        inputMode="decimal"
+                        value={rx[fieldKey]}
+                        onChange={(event) =>
+                          setRx((prev) => ({ ...prev, [fieldKey]: event.target.value }))
+                        }
+                        placeholder={col.placeholder}
+                        className={cn(
+                          controlVariants({ invalid: false }),
+                          'h-9 tabular text-center text-[13px]',
+                        )}
+                      />
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
@@ -295,9 +334,12 @@ export default function NewVisitPage() {
   const [notes, setNotes] = useState('')
   const [rx, setRx] = useState(BLANK_RX)
 
-  const [items, setItems] = useState([blankItem()])
+  const [items, setItems] = useState([])
+  const [includeOrder, setIncludeOrder] = useState(true)
   const [amountPaid, setAmountPaid] = useState('')
   const [method, setMethod] = useState(() => getDefaultPaymentMethod(userId))
+  const [orderDrawer, setOrderDrawer] = useState({ open: false, index: null })
+  const [paymentDrawerOpen, setPaymentDrawerOpen] = useState(false)
 
   const [newPatient, setNewPatient] = useState({
     full_name: '',
@@ -334,9 +376,10 @@ export default function NewVisitPage() {
     () => items.reduce((sum, item) => sum + itemTotal(item), 0),
     [items],
   )
+  const hasOrder = includeOrder && items.some((item) => itemTotal(item) > 0)
   const paid = Number(amountPaid) || 0
-  const balanceDue = Math.max(orderTotal - paid, 0)
-  const paymentType = paymentTypeFor(orderTotal, paid)
+  const balanceDue = hasOrder ? Math.max(orderTotal - paid, 0) : 0
+  const paymentType = hasOrder ? paymentTypeFor(orderTotal, paid) : 'Unpaid'
 
   const searchPending = search.trim() !== deferredSearch.trim()
   const searchBusy =
@@ -353,8 +396,35 @@ export default function NewVisitPage() {
     }
   }, [patientId, mode])
 
-  const setItem = (key, patch) =>
-    setItems((prev) => prev.map((item) => (item.key === key ? { ...item, ...patch } : item)))
+  const openAddItem = () => {
+    setIncludeOrder(true)
+    setOrderDrawer({ open: true, index: null })
+  }
+  const openEditItem = (index) => setOrderDrawer({ open: true, index })
+  const closeOrderDrawer = () => setOrderDrawer({ open: false, index: null })
+
+  const saveOrderItem = (next) => {
+    const editing = orderDrawer.index
+    if (editing == null) {
+      setItems((prev) => [...prev, { ...next, key: blankItem().key }])
+    } else {
+      setItems((prev) =>
+        prev.map((item, index) => (index === editing ? { ...next, key: item.key } : item)),
+      )
+    }
+    closeOrderDrawer()
+  }
+
+  const removeItem = (index) => {
+    const item = items[index]
+    void confirm({
+      title: 'Remove this item?',
+      message: `${itemLabel(item)} will be removed from the order.`,
+      confirmLabel: 'Remove item',
+      onConfirm: () => setItems((prev) => prev.filter((_, i) => i !== index)),
+      errorMessage: 'Could not remove the item. Please try again.',
+    })
+  }
 
   const useExistingDuplicate = () => {
     if (!duplicate) return
@@ -380,66 +450,58 @@ export default function NewVisitPage() {
     setSaving(true)
     const progress = saveProgressRef.current
     try {
-      if (!progress.patientId) {
-        progress.patientId = mode === 'new'
-          ? (await createPatient({ ...newPatient, address: '', notes: '' })).id
-          : patientId
+      if (!progress.order) {
+        progress.transactionIdempotencyKey ??= crypto.randomUUID()
+        const transaction = await createVisitOrderTransaction({
+          patient_id: mode === 'existing' ? patientId : null,
+          new_patient: mode === 'new' ? { ...newPatient, address: '', notes: '' } : null,
+          visit_date: new Date(visitDate).toISOString(),
+          notes,
+          prescription: hasPrescription(rx) ? rx : null,
+          description: hasOrder ? describeOrderItems(items.filter((item) => itemTotal(item) > 0)) : null,
+          total_amount: hasOrder ? orderTotal : null,
+          order_date: toDateKey(),
+          initial_payment: hasOrder ? paid : 0,
+          payment_date: hasOrder && paid > 0 ? toDateKey() : null,
+          payment_notes: hasOrder && paid > 0 ? describePayment(method, paymentType) : null,
+          idempotency_key: progress.transactionIdempotencyKey,
+        })
+        progress.patient = transaction.patient
+        progress.patientId = transaction.patient.id
+        progress.visit = transaction.visit
+        progress.order = transaction.order
+        progress.payment = Boolean(transaction.payment)
       }
 
       if (mode === 'new' && !progress.patientInitialized) {
-        setJustCreated({ id: progress.patientId, full_name: newPatient.full_name.trim() })
+        setJustCreated({ id: progress.patientId, full_name: progress.patient.full_name })
         selectPatient(progress.patientId)
         progress.patientInitialized = true
       }
 
-      if (!progress.visit) {
-        progress.visit = await createVisit({
-          patient_id: progress.patientId,
-          visit_date: new Date(visitDate).toISOString(),
-          notes,
-          prescription: hasPrescription(rx) ? rx : null,
-        })
-      }
-
-      if (!progress.order) {
-        progress.order = await createOrder({
-          patient_id: progress.patientId,
-          visit_id: progress.visit.id,
-          description: describeOrderItems(items.filter((item) => itemTotal(item) > 0)),
-          total_amount: orderTotal,
-          status: 'ORDERED',
-        })
-      }
-
-      if (paid > 0 && !progress.payment) {
-        await createPayment({
-          order_id: progress.order.id,
-          amount: paid,
-          payment_date: toDateKey(),
-          notes: describePayment(method, paymentType),
-        })
-        progress.payment = true
-      }
-
       const order = progress.order
-      const patientName = selected?.full_name ?? newPatient.full_name ?? 'Patient'
+      const patientName = progress.patient.full_name ?? selected?.full_name ?? newPatient.full_name ?? 'Patient'
       saveProgressRef.current = {}
       invalidateClinicQueries(
         userId,
-        'patients-list',
-        'patient-roster',
-        'orders-list',
-        'dashboard-summary',
-        'today-activity',
-        'finance-payments',
+        'loadPatients',
+        'loadVisits',
+        'loadOrders',
+        'loadSummary',
+        'loadPayments',
+        'loadFollowups',
       )
       resultDialog.success({
-        title: 'Visit and order saved',
-        message: `${patientName} · ${order.order_number}. ${balanceDue > 0 ? 'Deposit received.' : 'Paid in full.'}`,
-        primaryLabel: 'View order',
-        onPrimary: () => navigate(`/orders?search=${encodeURIComponent(order.order_number)}`),
+        title: order ? 'Visit and order saved' : 'Visit saved',
+        message: order
+          ? `${patientName} · ${order.order_number}. ${balanceDue > 0 ? 'Deposit received.' : 'Paid in full.'}`
+          : `${patientName}'s visit was saved without an order.`,
+        primaryLabel: order ? 'View order' : 'View patients',
+        onPrimary: () => navigate(order
+          ? `/orders?search=${encodeURIComponent(order.order_number)}`
+          : `/patients?search=${encodeURIComponent(patientName)}`),
       })
-      navigate('/orders')
+      navigate(order ? '/orders' : '/patients')
     } catch (caught) {
       resultDialog.error({
         title: 'Could not save the visit',
@@ -488,10 +550,11 @@ export default function NewVisitPage() {
     }
 
     const hasItems = items.some((item) => itemTotal(item) > 0)
-    if (!hasItems) nextErrors.order = 'Add at least one order item with a quantity and price.'
+    if (includeOrder && !hasItems) nextErrors.order = 'Add an order item or turn off order creation.'
     if (items.some((item) => itemTotal(item) < 0)) nextErrors.order = 'Prices cannot be negative.'
     if (paid < 0) nextErrors.amountPaid = 'Amount paid cannot be negative.'
-    if (paid > orderTotal && orderTotal > 0) {
+    if (!includeOrder && paid > 0) nextErrors.amountPaid = 'Add an order before recording a payment.'
+    if (includeOrder && paid > orderTotal && orderTotal > 0) {
       nextErrors.amountPaid = 'Amount paid cannot exceed the order total.'
     }
 
@@ -516,7 +579,9 @@ export default function NewVisitPage() {
 
     void confirm({
       title: 'Create this visit?',
-      message: `Save the visit, order, and payment for ${patientContextLabel}?`,
+      message: includeOrder
+        ? `Save the visit, order, and payment for ${patientContextLabel}?`
+        : `Save a visit for ${patientContextLabel} without creating an order?`,
       confirmLabel: 'Create visit',
       variant: 'default',
       onConfirm: saveVisitAction,
@@ -551,12 +616,16 @@ export default function NewVisitPage() {
             value={patientContextLabel}
             tone={mode === 'existing' && !patientId ? 'warning' : 'neutral'}
           />
-          <ContextStat icon={ClipboardList} label="Order total" value={formatPeso(orderTotal)} />
+          <ContextStat
+            icon={ClipboardList}
+            label="Order total"
+            value={hasOrder ? formatPeso(orderTotal) : includeOrder ? 'Add items' : 'No order'}
+          />
           <ContextStat
             icon={Banknote}
-            label="Balance after payment"
-            value={formatPeso(balanceDue)}
-            tone={balanceDue > 0 ? 'error' : 'success'}
+            label={hasOrder ? 'Balance after payment' : 'Payment'}
+            value={hasOrder ? formatPeso(balanceDue) : includeOrder ? 'Add items' : 'Not applicable'}
+            tone={hasOrder && balanceDue > 0 ? 'error' : 'neutral'}
           />
         </div>
       </div>
@@ -592,7 +661,7 @@ export default function NewVisitPage() {
                   className={cn(
                     'rounded-[7px] px-4 py-2 text-[13px] font-medium transition-colors',
                     mode === tab.value
-                      ? 'bg-white font-semibold text-espresso shadow-card'
+                      ? 'bg-surface font-semibold text-espresso shadow-card'
                       : 'text-warmgray hover:text-espresso',
                   )}
                 >
@@ -666,7 +735,7 @@ export default function NewVisitPage() {
                         }}
                         placeholder="Search by name or CP number"
                         aria-label="Search by name or CP number"
-                        className="h-11 w-full rounded-control border border-champagne bg-ivory/50 pr-10 pl-10 text-sm text-espresso transition-all duration-200 placeholder:text-warmgray/55 focus:border-gold focus:bg-white focus:ring-2 focus:ring-gold/20 focus:outline-none"
+                        className="h-11 w-full rounded-control border border-champagne bg-ivory/50 pr-10 pl-10 text-sm text-espresso transition-all duration-200 placeholder:text-warmgray/55 focus:border-gold focus:bg-surface focus:ring-2 focus:ring-gold/20 focus:outline-none"
                       />
                       {search.length > 0 && (
                         <button
@@ -854,132 +923,176 @@ export default function NewVisitPage() {
           <CardSection
             id="section-order"
             title="Order"
-            description="Line items for glasses or other products from this visit."
+            description="An order is optional for this visit."
             action={
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setItems((prev) => [...prev, blankItem()])}
-              >
+              <Button type="button" variant="outline" size="sm" onClick={openAddItem}>
                 <Plus className="size-4" aria-hidden="true" />
                 Add item
               </Button>
             }
           >
+            <label className="mb-4 flex items-start gap-3 rounded-control border border-champagne bg-ivory/40 px-3.5 py-3">
+              <input
+                type="checkbox"
+                checked={includeOrder}
+                onChange={(event) => {
+                  setIncludeOrder(event.target.checked)
+                  if (!event.target.checked) setAmountPaid('')
+                }}
+                className="mt-0.5 size-4 accent-[var(--color-gold-dark)]"
+              />
+              <span>
+                <span className="block text-[13px] font-medium text-espresso">Create an order for this visit</span>
+                <span className="mt-0.5 block text-[12px] text-warmgray">Turn this off to save only the patient and visit.</span>
+              </span>
+            </label>
+
+            {includeOrder ? (
+              <>
             {errors.order && (
               <div className="mb-4">
                 <ErrorNote message={errors.order} />
               </div>
             )}
 
-            <div className="space-y-3">
-              {items.map((item, index) => (
-                <div
-                  key={item.key}
-                  className="rounded-control border border-champagne bg-ivory/30 p-3.5"
-                >
-                  <div className="mb-3 flex items-center justify-between gap-2">
-                    <p className="text-[12px] font-semibold tracking-wide text-warmgray uppercase">
-                      Item {index + 1}
-                    </p>
-                    <p className="tabular text-sm font-semibold text-espresso">
-                      {formatPeso(itemTotal(item))}
-                    </p>
-                  </div>
-                  <div className="space-y-4">
-                    <ChoiceGroup
-                      id={`type-${item.key}`}
-                      label="Item"
-                      layout="grid-3"
-                      value={item.type}
-                      options={ORDER_ITEM_TYPES}
-                      onChange={(next) => setItem(item.key, { type: next })}
-                    />
-                    <ChoiceGroup
-                      id={`lens-${item.key}`}
-                      label="Lens type"
-                      layout="grid-3"
-                      value={item.lensType}
-                      options={LENS_TYPES}
-                      onChange={(next) => setItem(item.key, { lensType: next })}
-                    />
-                    <div className="grid items-end gap-3 sm:grid-cols-[8.5rem_1fr_2.5rem]">
-                      <div>
-                        <Label htmlFor={`qty-${item.key}`}>Qty</Label>
-                        <div className="flex h-9 overflow-hidden rounded-control border border-champagne bg-white">
-                          <button
+            {items.length === 0 ? (
+              <EmptyState
+                icon={Glasses}
+                title="No items added yet"
+                description="Add glasses, lenses, or services to build this visit’s order."
+                action={
+                  <Button type="button" size="sm" onClick={openAddItem}>
+                    <Plus className="size-4" aria-hidden="true" />
+                    Add your first item
+                  </Button>
+                }
+              />
+            ) : (
+              <>
+                <div className="hidden overflow-hidden rounded-control border border-champagne sm:block">
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b border-champagne bg-ivory/70 text-[11px] tracking-wide text-warmgray uppercase">
+                        <th className="px-3 py-2.5 text-left font-semibold">Item</th>
+                        <th className="px-3 py-2.5 text-left font-semibold">Details</th>
+                        <th className="px-3 py-2.5 text-center font-semibold">Qty</th>
+                        <th className="px-3 py-2.5 text-right font-semibold">Price</th>
+                        <th className="px-3 py-2.5 text-right font-semibold">Subtotal</th>
+                        <th className="px-3 py-2.5 text-right font-semibold">
+                          <span className="sr-only">Actions</span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map((item, index) => (
+                        <tr
+                          key={item.key}
+                          className="border-b border-champagne/70 last:border-b-0"
+                        >
+                          <td className="px-3 py-2.5 font-medium text-espresso">
+                            {itemLabel(item)}
+                          </td>
+                          <td className="px-3 py-2.5 text-warmgray">
+                            {itemDetails(item) || '—'}
+                          </td>
+                          <td className="tabular px-3 py-2.5 text-center text-espresso">
+                            {item.quantity}
+                          </td>
+                          <td className="tabular px-3 py-2.5 text-right text-espresso">
+                            {formatPeso(Number(item.unitPrice) || 0)}
+                          </td>
+                          <td className="tabular px-3 py-2.5 text-right font-semibold text-espresso">
+                            {formatPeso(itemTotal(item))}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => openEditItem(index)}
+                                aria-label={`Edit ${itemLabel(item)}`}
+                              >
+                                <Pencil className="size-4" aria-hidden="true" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeItem(index)}
+                                aria-label={`Remove ${itemLabel(item)}`}
+                              >
+                                <Trash2 className="size-4" aria-hidden="true" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <ul className="space-y-2.5 sm:hidden">
+                  {items.map((item, index) => (
+                    <li
+                      key={item.key}
+                      className="rounded-control border border-champagne bg-ivory/30 p-3.5"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="min-w-0 truncate text-sm font-semibold text-espresso">
+                          {itemLabel(item)}
+                        </p>
+                        <p className="tabular shrink-0 text-sm font-semibold text-espresso">
+                          {formatPeso(itemTotal(item))}
+                        </p>
+                      </div>
+                      {itemDetails(item) && (
+                        <p className="mt-0.5 text-[12px] text-warmgray">{itemDetails(item)}</p>
+                      )}
+                      <div className="mt-2.5 flex items-center justify-between">
+                        <p className="tabular text-[12px] text-warmgray">
+                          {item.quantity} × {formatPeso(Number(item.unitPrice) || 0)}
+                        </p>
+                        <div className="flex gap-1">
+                          <Button
                             type="button"
-                            disabled={(parseInt(item.quantity, 10) || 1) <= 1}
-                            onClick={() =>
-                              setItem(item.key, {
-                                quantity: String(Math.max(parseInt(item.quantity, 10) || 1, 1) - 1),
-                              })
-                            }
-                            aria-label={`Decrease quantity for item ${index + 1}`}
-                            className="flex w-8 shrink-0 items-center justify-center text-warmgray transition-colors hover:bg-gold-light/60 hover:text-espresso focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-gold disabled:cursor-not-allowed disabled:opacity-45"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditItem(index)}
+                            aria-label={`Edit ${itemLabel(item)}`}
                           >
-                            <Minus className="size-3.5" aria-hidden="true" />
-                          </button>
-                          <input
-                            id={`qty-${item.key}`}
-                            type="number"
-                            min="1"
-                            step="1"
-                            inputMode="numeric"
-                            value={item.quantity}
-                            onChange={(event) =>
-                              setItem(item.key, { quantity: event.target.value })
-                            }
-                            className="h-full min-w-0 w-full border-x border-champagne bg-transparent text-center text-sm text-espresso focus:border-gold focus:ring-2 focus:ring-gold/20 focus:outline-none"
-                          />
-                          <button
+                            <Pencil className="size-4" aria-hidden="true" />
+                          </Button>
+                          <Button
                             type="button"
-                            onClick={() =>
-                              setItem(item.key, {
-                                quantity: String(Math.max(parseInt(item.quantity, 10) || 1, 1) + 1),
-                              })
-                            }
-                            aria-label={`Increase quantity for item ${index + 1}`}
-                            className="flex w-8 shrink-0 items-center justify-center text-warmgray transition-colors hover:bg-gold-light/60 hover:text-espresso focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-gold"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeItem(index)}
+                            aria-label={`Remove ${itemLabel(item)}`}
                           >
-                            <Plus className="size-3.5" aria-hidden="true" />
-                          </button>
+                            <Trash2 className="size-4" aria-hidden="true" />
+                          </Button>
                         </div>
                       </div>
-                      <Input
-                        id={`price-${item.key}`}
-                        label="Price each"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        inputMode="decimal"
-                        placeholder="0.00"
-                        leading="₱"
-                        value={item.unitPrice}
-                        onChange={(event) => setItem(item.key, { unitPrice: event.target.value })}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        disabled={items.length === 1}
-                        onClick={() => setItems((prev) => prev.filter((row) => row.key !== item.key))}
-                        aria-label={`Remove ${item.type} item`}
-                      >
-                        <Trash2 className="size-4" aria-hidden="true" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+              </>
+            ) : (
+              <p className="rounded-control border border-champagne px-4 py-5 text-center text-[13px] text-warmgray">
+                This visit will be saved without an order or payment.
+              </p>
+            )}
           </CardSection>
         </Card>
 
         <aside className="min-w-0 space-y-4 lg:sticky lg:top-8">
           <section className="today-animate" style={{ animationDelay: '120ms' }}>
-            <SectionTitle description="Deposit or full payment collected today.">
+            <SectionTitle description={includeOrder
+              ? 'Deposit or full payment collected today.'
+              : 'Add an order before recording payment.'}>
               Payment
             </SectionTitle>
             <Card className="overflow-hidden p-5 sm:p-6">
@@ -996,16 +1109,39 @@ export default function NewVisitPage() {
                   value={amountPaid}
                   onChange={(event) => setAmountPaid(event.target.value)}
                   error={errors.amountPaid}
-                  hint={paid > 0 ? paymentType : 'Leave blank if nothing was collected yet.'}
+                  hint={!includeOrder
+                    ? 'Enable order creation to record a payment.'
+                    : paid > 0 ? paymentType : 'Leave blank if nothing was collected yet.'}
+                  disabled={!includeOrder}
                 />
-                <ChoiceGroup
-                  id="method"
-                  label="Payment method"
-                  layout="grid-2"
-                  value={method}
-                  options={PAYMENT_METHOD_OPTIONS}
-                  onChange={setMethod}
-                />
+                <div>
+                  <Label>Payment method</Label>
+                  <div className="mt-1.5 flex items-center gap-2.5 rounded-control border border-champagne bg-ivory/40 px-3.5 py-2.5">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-gold-light/60 text-gold-dark">
+                      {(() => {
+                        const Icon = paymentMethodOption(method).icon
+                        return <Icon className="size-4" strokeWidth={1.8} aria-hidden="true" />
+                      })()}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-espresso">
+                      {paymentMethodOption(method).label}
+                    </span>
+                    <Check className="size-4 shrink-0 text-gold-dark" aria-hidden="true" />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 w-full"
+                    onClick={() => setPaymentDrawerOpen(true)}
+                    disabled={!includeOrder}
+                  >
+                    Change Payment Method
+                  </Button>
+                  <p className="mt-1.5 text-xs text-warmgray">
+                    Applies to the payment recorded when you save this visit.
+                  </p>
+                </div>
               </div>
             </Card>
           </section>
@@ -1018,16 +1154,22 @@ export default function NewVisitPage() {
               Summary
             </h2>
             <p className="tabular mt-2 font-display text-[28px] leading-none font-bold tracking-tight text-espresso">
-              {formatPeso(orderTotal)}
+              {includeOrder ? formatPeso(orderTotal) : 'No order'}
             </p>
-            <p className="mt-1 text-[13px] text-warmgray">Order total for this visit</p>
+            <p className="mt-1 text-[13px] text-warmgray">
+              {includeOrder ? 'Order total for this visit' : 'Patient and visit only'}
+            </p>
             <dl className="mt-4 space-y-2.5 border-t border-champagne/80 pt-4">
-              <SummaryRow label="Amount paid" value={formatPeso(paid)} />
-              <SummaryRow
-                label="Balance due"
-                value={formatPeso(balanceDue)}
-                tone={balanceDue > 0 ? 'due' : 'settled'}
-              />
+              {includeOrder && (
+                <>
+                  <SummaryRow label="Amount paid" value={formatPeso(paid)} />
+                  <SummaryRow
+                    label="Balance due"
+                    value={formatPeso(balanceDue)}
+                    tone={balanceDue > 0 ? 'due' : 'settled'}
+                  />
+                </>
+              )}
             </dl>
           </Card>
 
@@ -1048,6 +1190,20 @@ export default function NewVisitPage() {
         </aside>
       </form>
       </div>
+
+      <OrderItemDrawer
+        open={orderDrawer.open}
+        item={orderDrawer.index != null ? items[orderDrawer.index] : null}
+        onClose={closeOrderDrawer}
+        onSave={saveOrderItem}
+      />
+
+      <PaymentMethodDrawer
+        open={paymentDrawerOpen}
+        method={method}
+        onClose={() => setPaymentDrawerOpen(false)}
+        onSelect={setMethod}
+      />
     </>
   )
 }

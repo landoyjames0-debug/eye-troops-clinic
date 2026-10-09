@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { Banknote } from 'lucide-react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -40,6 +40,8 @@ export function AddPaymentDialog({ order, onClose, onSaved }) {
   const [form, setForm] = useState(blankForm)
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
+  const paymentIdempotencyKey = useRef(null)
+  paymentIdempotencyKey.current ??= crypto.randomUUID()
 
   const hasUnsavedChanges = useMemo(
     () => !formEquals(form, initialForm),
@@ -55,6 +57,7 @@ export function AddPaymentDialog({ order, onClose, onSaved }) {
         amount,
         payment_date: form.payment_date,
         notes: [form.method, form.notes].filter(Boolean).join(' · '),
+        idempotency_key: paymentIdempotencyKey.current,
       })
       resultDialog.success({
         title: 'Payment recorded',

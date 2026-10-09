@@ -492,7 +492,7 @@ export default function ProfilePage() {
         description="Manage your staff account and everyday clinic preferences."
       />
 
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)]">
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)]">
         <div className="space-y-6">
           <section>
             <SectionTitle description="Your staff identity in the clinic system.">

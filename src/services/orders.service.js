@@ -1,7 +1,7 @@
-import { ORDER_NUMBER_PREFIX } from '@/lib/constants'
+import { ORDER_NUMBER_PREFIX, ORDER_STATUS } from '@/lib/constants'
 import { supabase, unwrap } from '@/lib/supabase'
 import { toAppError } from '@/utils/errors'
-import { toAmount, toDateKey } from '@/utils/dates'
+import { toAmount } from '@/utils/dates'
 
 /** `paid` and `balance` are always derived — never stored on the order row. */
 export function withTotals(order, payments) {
@@ -32,7 +32,7 @@ export function isCompletedPayment(payment) {
 export function outstandingBalance(orders) {
   return toAmount(
     orders
-      .filter((order) => order.status !== 'CLAIMED' && order.status !== 'CANCELLED')
+      .filter((order) => order.status !== ORDER_STATUS.CLAIMED && order.status !== ORDER_STATUS.CANCELLED)
       .reduce((sum, order) => sum + Math.max(Number(order.balance), 0), 0),
   )
 }
@@ -139,43 +139,6 @@ export async function getOrderStatusHistory(orderId) {
   }
 }
 
-/** Sequence is the count of orders in the current year, so numbers are stable. */
-async function nextOrderNumber() {
-  const year = new Date().getFullYear()
-  const { count, error } = await supabase
-    .from('orders')
-    .select('id', { count: 'exact', head: true })
-    .gte('order_date', `${year}-01-01`)
-    .lte('order_date', `${year}-12-31`)
-
-  if (error) throw error
-  return buildOrderNumber((count ?? 0) + 1)
-}
-
-export async function createOrder(input) {
-  const payload = {
-    patient_id: input.patient_id,
-    visit_id: input.visit_id,
-    description: input.description.trim() || null,
-    total_amount: toAmount(input.total_amount),
-    status: input.status,
-    order_date: toDateKey(),
-  }
-
-  try {
-    const orderNumber = await nextOrderNumber()
-    return unwrap(
-      await supabase
-        .from('orders')
-        .insert({ ...payload, order_number: orderNumber })
-        .select('*')
-        .single(),
-    )
-  } catch (caught) {
-    throw toAppError(caught, 'saveOrder')
-  }
-}
-
 export async function updateOrderStatus(orderId, status) {
   try {
     // `updated_at` is maintained by the orders_touch_updated_at trigger, so the
@@ -215,5 +178,12 @@ export async function updateOrder(orderId, input) {
  * It is a status change, never a destructive delete.
  */
 export async function cancelOrder(orderId) {
-  return updateOrderStatus(orderId, 'CANCELLED')
+  try {
+    return unwrap(await supabase.rpc('cancel_order', {
+      p_order_id: orderId,
+      p_reason: null,
+    }).single())
+  } catch (caught) {
+    throw toAppError(caught, 'cancelOrder')
+  }
 }

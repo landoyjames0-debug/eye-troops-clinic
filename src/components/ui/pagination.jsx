@@ -95,7 +95,7 @@ export function Pagination({
                       'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold',
                       entry === page
                         ? 'border-gold bg-gold font-semibold text-white shadow-sm'
-                        : 'border-champagne bg-white text-espresso hover:bg-gold-light/60',
+                        : 'border-champagne bg-surface text-espresso hover:bg-gold-light/60',
                     )}
                   >
                     {entry}

@@ -117,11 +117,14 @@ export function Select({
     const spaceAbove = rect.top
     const popoverHeight = 240
     const placement = spaceBelow < popoverHeight && spaceAbove > spaceBelow ? 'top' : 'bottom'
+    const width = Math.min(Math.max(rect.width, 160), window.innerWidth - 16)
+    const maxLeft = Math.max(8, window.innerWidth - width - 8)
+    const left = Math.min(Math.max(8, rect.left), maxLeft)
 
     setDropdownPos({
       top: placement === 'bottom' ? rect.bottom + 4 : rect.top - 4,
-      left: rect.left,
-      width: Math.max(rect.width, 160),
+      left,
+      width,
       placement,
     })
   }, [isMobile])

@@ -7,6 +7,7 @@ import { getFollowupCounts, listFollowups } from '@/lib/followups'
 import { APPOINTMENT_STATUS, normalizeAppointmentStatus } from '@/lib/appointment-status'
 import { monthBounds, toAmount, toDateKey, yearBounds } from '@/utils/dates'
 import { monthLabel, formatMonthYear } from '@/utils/format'
+import { ORDER_STATUS } from '@/lib/constants'
 
 /**
  * All money figures here are summed from `payments` and `expenses` at read
@@ -28,7 +29,7 @@ export async function getDashboardSummary() {
 
   const salesThisMonth = toAmount(monthPayments.reduce((sum, row) => sum + Number(row.amount), 0))
   const expensesThisMonth = totalExpenses(monthExpenses)
-  const openOrders = orders.filter((order) => !['CLAIMED', 'CANCELLED'].includes(order.status))
+  const openOrders = orders.filter((order) => ![ORDER_STATUS.CLAIMED, ORDER_STATUS.CANCELLED].includes(order.status))
   return {
     collectedToday: toAmount(
       todayPayments.reduce((sum, row) => sum + Number(row.amount), 0),
@@ -37,7 +38,7 @@ export async function getDashboardSummary() {
     expensesThisMonth,
     monthNet: toAmount(salesThisMonth - expensesThisMonth),
     unpaidBalances: outstandingBalance(orders),
-    pickupsDue: openOrders.filter((order) => order.status === 'READY_FOR_PICKUP').length,
+    pickupsDue: openOrders.filter((order) => order.status === ORDER_STATUS.READY_FOR_PICKUP).length,
     followUpsDue: followupCounts.all,
     appointmentsToday: appointmentsTodayList.filter(
       (item) => normalizeAppointmentStatus(item.status) !== APPOINTMENT_STATUS.CANCELLED,
@@ -105,7 +106,7 @@ export async function getTodayActivity(date = toDateKey()) {
       })
     }
     // A claimed order is a pickup event, and it carries no money of its own.
-    if (order.status === 'CLAIMED' && String(order.updated_at ?? '').startsWith(date)) {
+    if (order.status === ORDER_STATUS.CLAIMED && String(order.updated_at ?? '').startsWith(date)) {
       rows.push({
         id: `pickup-${order.id}`,
         order_id: order.id,
@@ -113,7 +114,7 @@ export async function getTodayActivity(date = toDateKey()) {
         patient,
         transaction: 'Pickup',
         amount: 0,
-        status: 'CLAIMED',
+        status: ORDER_STATUS.CLAIMED,
         at: order.updated_at,
       })
     }
@@ -153,7 +154,7 @@ export async function getTodayActivity(date = toDateKey()) {
 
 /** Orders waiting for a patient to collect them. */
 export async function getPickupsDue() {
-  const orders = await listOrders('', 'READY_FOR_PICKUP', 'ALL')
+  const orders = await listOrders('', ORDER_STATUS.READY_FOR_PICKUP, 'ALL')
 
   return orders
     .map((order) => ({
