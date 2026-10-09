@@ -16,6 +16,9 @@ A: Today shows clinic activity, collections, sales and expenses, outstanding bal
 Q: Can I use the website on a phone or tablet?
 A: Yes. The website has responsive layouts for desktop, tablet, and mobile.
 
+Q: How do I install Eye TroOps on my device?
+A: On your first visit, choose Install app in the prompt. If the prompt is not available, open the browser menu and choose Install Eye TroOps or Install this site as an app. On iPhone or iPad, open the site in Safari, tap Share, then Add to Home Screen. Installation adds an app shortcut; clinic records still require an internet connection.
+
 ## Patients
 
 Q: How do I find a patient?

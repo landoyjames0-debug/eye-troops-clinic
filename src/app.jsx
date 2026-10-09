@@ -2,6 +2,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { ConnectionBanner } from '@/components/ConnectionBanner'
 import { ErrorBoundary } from '@/components/error-boundary'
+import { PwaInstallPrompt } from '@/components/pwa-install-prompt'
 import { AppRouter } from '@/router'
 
 export function App() {
@@ -16,6 +17,7 @@ export function App() {
         </a>
         <ConnectionBanner />
         <AppRouter />
+        <PwaInstallPrompt />
 
         {/* Top-centre keeps toasts clear of both the sidebar and the mobile tab bar. */}
         <Toaster
