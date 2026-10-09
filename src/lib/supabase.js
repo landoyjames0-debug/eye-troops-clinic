@@ -6,8 +6,6 @@ const supabaseKey =
 
 export const isSupabaseConfigured = supabaseUrl.startsWith('https://') && supabaseKey.length > 20
 
-console.log('URL:', supabaseUrl.slice(0, 12), 'key length:', supabaseKey.length)
-
 if (import.meta.env.DEV && !isSupabaseConfigured) {
   console.warn('[Supabase Config] Not configured:', {
     VITE_SUPABASE_URL: supabaseUrl ? 'Set' : 'Missing',
