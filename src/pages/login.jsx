@@ -173,7 +173,7 @@ export default function LoginPage() {
       <AnimatedBackground />
       <CustomCursor />
 
-      <div className="login-shell relative z-10 lg:grid lg:min-h-dvh lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+      <div className="login-shell relative z-10">
       <AuthBrandPanel
         eyebrow={LOGIN_COPY.eyebrow}
         headline={<>{LOGIN_COPY.headline[0]}<br />{LOGIN_COPY.headline[1]}</>}
@@ -181,8 +181,8 @@ export default function LoginPage() {
         features={LOGIN_COPY.features}
       />
 
-      <section className="login-form-panel relative flex flex-1 items-center justify-center px-4 py-6 sm:px-8 sm:py-10 lg:min-h-dvh lg:px-12 xl:px-20">
-        <div className="relative w-full max-w-110">
+      <section className="login-form-panel relative flex flex-1 items-center justify-center px-4 sm:px-8 lg:px-12 xl:px-20">
+        <div className="relative w-full max-w-[27rem] sm:max-w-110">
           <div
             className={`login-card overflow-hidden rounded-3xl border border-champagne/80 bg-surface/95 shadow-raised backdrop-blur-sm${shake ? ' login-card-shake' : ''}`}
             onAnimationEnd={(event) => {

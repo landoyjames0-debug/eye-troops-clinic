@@ -11,9 +11,9 @@ export function AuthBrandPanel({ eyebrow, headline, description, features }) {
         height={64}
         className="login-brand-logo"
       />
-      <div className="min-w-0 leading-tight">
-        <p className="font-display text-xl font-extrabold text-espresso">{APP_NAME}</p>
-        <p className="login-brand-tagline">OPTICAL CLINIC MANAGEMENT</p>
+      <div className="min-w-0 leading-tight overflow-hidden">
+        <p className="font-display text-[1rem] font-extrabold text-espresso whitespace-nowrap truncate">{APP_NAME}</p>
+        <p className="login-brand-tagline whitespace-nowrap truncate">OPTICAL CLINIC MANAGEMENT</p>
       </div>
     </div>
   )

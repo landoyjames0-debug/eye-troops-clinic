@@ -931,7 +931,7 @@ export default function NewVisitPage() {
               </Button>
             }
           >
-            <label className="mb-4 flex items-start gap-3 rounded-control border border-champagne bg-ivory/40 px-3.5 py-3">
+            <label className="mb-4 flex cursor-pointer items-start gap-3 rounded-control border border-champagne bg-ivory/40 px-3.5 py-3 select-none transition-colors hover:bg-ivory/70">
               <input
                 type="checkbox"
                 checked={includeOrder}
@@ -939,8 +939,26 @@ export default function NewVisitPage() {
                   setIncludeOrder(event.target.checked)
                   if (!event.target.checked) setAmountPaid('')
                 }}
-                className="mt-0.5 size-4 accent-[var(--color-gold-dark)]"
+                className="sr-only peer"
               />
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'mt-0.5 inline-flex size-4.5 shrink-0 items-center justify-center rounded-[5px] border transition-all duration-150',
+                  'peer-focus-visible:ring-2 peer-focus-visible:ring-gold/40 peer-focus-visible:ring-offset-1',
+                  includeOrder
+                    ? 'border-gold-dark bg-gold-dark text-white shadow-xs'
+                    : 'border-champagne bg-surface hover:border-gold/50',
+                )}
+              >
+                {includeOrder && (
+                  <Check
+                    className="size-3 text-white"
+                    strokeWidth={2.5}
+                    aria-hidden="true"
+                  />
+                )}
+              </span>
               <span>
                 <span className="block text-[13px] font-medium text-espresso">Create an order for this visit</span>
                 <span className="mt-0.5 block text-[12px] text-warmgray">Turn this off to save only the patient and visit.</span>

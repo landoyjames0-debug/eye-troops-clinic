@@ -138,7 +138,7 @@ export default function SignUpPage() {
         <div className="absolute inset-0 bg-linear-to-br from-gold-light via-ivory to-champagne/50" />
       </div>
 
-      <div className="login-shell relative lg:grid lg:min-h-dvh lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+      <div className="login-shell relative z-10">
         <AuthBrandPanel
           eyebrow={SIGNUP_COPY.eyebrow}
           headline={SIGNUP_COPY.headline}
@@ -146,8 +146,8 @@ export default function SignUpPage() {
           features={SIGNUP_COPY.features}
         />
 
-        <section className="login-form-panel relative flex flex-1 items-center justify-center px-4 py-6 sm:px-8 sm:py-10 lg:min-h-dvh lg:px-12 xl:px-20">
-          <div className="relative w-full max-w-110">
+        <section className="login-form-panel relative flex flex-1 items-center justify-center px-4 sm:px-8 lg:px-12 xl:px-20">
+          <div className="relative w-full max-w-[27rem] sm:max-w-110">
             <div className="login-card overflow-hidden rounded-3xl border border-champagne/80 bg-surface/95 shadow-raised backdrop-blur-sm">
               <div className="login-card-accent h-1 bg-linear-to-r from-gold-light via-gold to-gold-dark" aria-hidden="true" />
 

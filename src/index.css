@@ -1062,6 +1062,7 @@ html.dark .text-gold-dark {
   display: flex;
   min-height: 100dvh;
   flex-direction: column;
+  /* On mobile, login-form-panel scrolls naturally — no 100dvh clamp */
 }
 
 .login-iris {
@@ -1123,10 +1124,11 @@ html.dark .text-gold-dark {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  min-width: 0;
   border-bottom: 1px solid var(--color-champagne);
   background: color-mix(in srgb, var(--color-surface) 85%, transparent);
   backdrop-filter: blur(8px);
-  padding: max(0.75rem, env(safe-area-inset-top)) 1rem 0.75rem;
+  padding: max(0.625rem, env(safe-area-inset-top)) 0.875rem 0.625rem;
   position: sticky;
   top: 0;
   z-index: 20;
@@ -1135,25 +1137,34 @@ html.dark .text-gold-dark {
 .login-brand-compact .login-brand-identity {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
+  gap: 0.5rem;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
 }
 
 .login-brand-compact .login-brand-logo {
-  width: 2.375rem;
-  height: 2.375rem;
-  flex: 0 0 2.375rem;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 2rem;
   border-radius: 50%;
   object-fit: contain;
 }
 
 .login-brand-compact .font-display {
-  font-size: 1.0625rem;
+  font-size: 0.9375rem;
   line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .login-brand-compact .login-brand-tagline {
-  font-size: 0.58rem;
-  letter-spacing: 0.1em;
+  font-size: 0.55rem;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .login-headline {
@@ -1206,7 +1217,9 @@ html.dark .text-gold-dark {
 }
 
 .login-form-panel {
-  min-height: 100dvh;
+  /* min-height only applies on tablet+ where there is a side brand panel */
+  padding-top: max(1.25rem, env(safe-area-inset-top));
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
 }
 
 .login-features {
@@ -1370,18 +1383,47 @@ html.dark .profile-theme-choice [role='radio']:not([aria-checked='true']) {
   color: var(--color-warmgray);
 }
 
+/* ─── Small tablet (600px–767px): single column, compact brand header ─── */
+@media (min-width: 600px) and (max-width: 767.98px) {
+  .login-brand-compact .login-brand-logo {
+    width: 2.25rem;
+    height: 2.25rem;
+    flex: 0 0 2.25rem;
+  }
+
+  .login-brand-compact .font-display {
+    font-size: 1rem;
+  }
+
+  .login-brand-compact .login-brand-tagline {
+    font-size: 0.5625rem;
+  }
+
+  .login-headline {
+    font-size: clamp(1.5rem, 4vw, 2rem);
+    margin: 1rem 0;
+  }
+
+  .login-form-panel {
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem;
+  }
+}
+
+/* ─── Tablet (768px–1199px): two-column layout ─── */
 @media (min-width: 768px) and (max-width: 1199px) {
   .login-shell {
     display: grid;
-    grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+    grid-template-columns: minmax(0, min(42%, 340px)) minmax(0, 1fr);
     min-height: 100dvh;
+    align-items: stretch;
   }
 
   .login-brand {
     position: relative;
     display: flex;
     min-width: 0;
-    min-height: 100dvh;
+    min-height: 100%;
     flex-direction: column;
     overflow: hidden;
     isolation: isolate;
@@ -1392,7 +1434,7 @@ html.dark .profile-theme-choice [role='radio']:not([aria-checked='true']) {
       color-mix(in srgb, var(--color-ivory) 80%, transparent),
       transparent
     );
-    padding: 2rem clamp(1.5rem, 4vw, 2.5rem);
+    padding: 2rem clamp(1.25rem, 3vw, 2rem);
   }
 
   .login-brand-compact {
@@ -1408,38 +1450,41 @@ html.dark .profile-theme-choice [role='radio']:not([aria-checked='true']) {
   }
 
   .login-brand-content {
-    padding-block: 1.5rem;
+    padding-block: 1.25rem;
   }
 
   .login-brand-logo {
-    width: 3rem;
-    height: 3rem;
+    width: 2.75rem;
+    height: 2.75rem;
   }
 
   .login-brand-tagline {
-    font-size: 0.625rem;
+    font-size: 0.5625rem;
   }
 
   .login-headline {
-    font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+    font-size: clamp(1.5rem, 3vw, 2.25rem);
+    margin: 0.875rem 0;
   }
 
   .login-brand-description {
-    font-size: 1rem;
-    max-width: 24rem;
+    font-size: 0.9375rem;
+    max-width: 100%;
   }
 
   .login-feature {
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
   }
 
   .login-feature-icon {
-    width: 2.25rem;
-    height: 2.25rem;
+    width: 2rem;
+    height: 2rem;
   }
 
   .login-form-panel {
     min-height: 100dvh;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
   }
 }
 
