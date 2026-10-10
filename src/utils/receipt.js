@@ -1,6 +1,7 @@
 import { isCompletedPayment } from '@/services/orders.service'
 import { paymentMethodOf, paymentNoteOf } from '@/lib/constants'
 import { formatDate, formatPeso } from '@/utils/format'
+import { formatAge } from '@/utils/age'
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -46,7 +47,7 @@ function receiptHtml(order, patient) {
     <div class="wrap">
       <div class="head">
         <div class="mark">ET</div>
-        <h1>Eye TroOps Optical Clinic</h1>
+        <h1>Eye Troops Optical Clinic</h1>
         <div class="muted">Official Receipt</div>
       </div>
 
@@ -54,6 +55,7 @@ function receiptHtml(order, patient) {
         <dt>Receipt no.</dt><dd>${escapeHtml(order.order_number)}</dd>
         <dt>Date</dt><dd>${escapeHtml(formatDate(order.order_date))}</dd>
         <dt>Patient</dt><dd>${escapeHtml(patient?.full_name ?? '—')}</dd>
+        <dt>Age</dt><dd>${escapeHtml(formatAge(patient))}</dd>
         <dt>Mobile</dt><dd>${escapeHtml(patient?.cp_number ?? '—')}</dd>
       </dl>
 

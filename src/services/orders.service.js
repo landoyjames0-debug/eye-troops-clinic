@@ -59,7 +59,7 @@ export async function listOrders(search = '', status = 'ALL', paymentFilter = 'A
     const [orders, payments, patients] = await Promise.all([
       query.order('order_date', { ascending: false }),
       supabase.from('payments').select('id, order_id, amount, status'),
-      supabase.from('patients').select('id, full_name, cp_number'),
+      supabase.from('patients').select('id, full_name, cp_number, date_of_birth, age'),
     ])
 
     const term = search.trim().toLowerCase()
@@ -108,7 +108,7 @@ export async function getOrderDetail(orderId) {
     )
     const patientResult = await supabase
       .from('patients')
-      .select('id, full_name, cp_number, address, notes')
+      .select('id, full_name, cp_number, address, notes, date_of_birth, age')
       .eq('id', orderResult.data.patient_id)
       .maybeSingle()
 

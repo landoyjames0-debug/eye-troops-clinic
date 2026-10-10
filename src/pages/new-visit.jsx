@@ -39,6 +39,7 @@ import {
 } from '@/lib/constants'
 import { toInputDateTime, toDateKey } from '@/utils/dates'
 import { formatPeso } from '@/utils/format'
+import { computeAgeFromDob, formatAge } from '@/utils/age'
 import { getDefaultPaymentMethod } from '@/lib/user-preferences'
 import { AppError } from '@/utils/errors'
 import { cn } from '@/lib/utils'
@@ -346,6 +347,8 @@ export default function NewVisitPage() {
     cp_number: '',
     address: '',
     notes: '',
+    date_of_birth: '',
+    age: '',
   })
   const [duplicate, setDuplicate] = useState(null)
   const [errors, setErrors] = useState({})
@@ -454,7 +457,17 @@ export default function NewVisitPage() {
         progress.transactionIdempotencyKey ??= crypto.randomUUID()
         const transaction = await createVisitOrderTransaction({
           patient_id: mode === 'existing' ? patientId : null,
-          new_patient: mode === 'new' ? { ...newPatient, address: '', notes: '' } : null,
+          new_patient: mode === 'new'
+            ? {
+                ...newPatient,
+                date_of_birth: newPatient.date_of_birth || null,
+                age: newPatient.date_of_birth
+                  ? null
+                  : (newPatient.age !== '' ? Number(newPatient.age) : null),
+                address: newPatient.address || '',
+                notes: newPatient.notes || '',
+              }
+            : null,
           visit_date: new Date(visitDate).toISOString(),
           notes,
           prescription: hasPrescription(rx) ? rx : null,
@@ -537,6 +550,15 @@ export default function NewVisitPage() {
       !/^[\d\s+()-]{7,20}$/.test(newPatient.cp_number.trim())
     ) {
       nextErrors.cp_number = 'Enter a valid contact number.'
+    }
+    if (mode === 'new' && newPatient.date_of_birth && newPatient.date_of_birth > toDateKey()) {
+      nextErrors.date_of_birth = 'Date of birth cannot be in the future.'
+    }
+    if (mode === 'new' && !newPatient.date_of_birth && newPatient.age !== '') {
+      const ageNum = Number(newPatient.age)
+      if (!Number.isInteger(ageNum) || ageNum < 0 || ageNum > 120) {
+        nextErrors.age = 'Age must be a whole number between 0 and 120.'
+      }
     }
     const visitTimestamp = visitDate ? new Date(visitDate) : null
     if (!visitDate || !visitDate.includes('T') || Number.isNaN(visitTimestamp?.getTime())) {
@@ -688,7 +710,7 @@ export default function NewVisitPage() {
                         </p>
                         {selectedRecord && (
                           <p className="tabular text-[12px] text-warmgray">
-                            {selectedRecord.cp_label} ·{' '}
+                            {selectedRecord.cp_label} · Age: {formatAge(selectedRecord)} ·{' '}
                             {selectedRecord.cp_number ?? 'No contact number'}
                           </p>
                         )}
@@ -784,7 +806,7 @@ export default function NewVisitPage() {
                                     {patient.full_name}
                                   </span>
                                   <span className="tabular block text-[12px] text-warmgray">
-                                    {patient.cp_label} · {patient.cp_number ?? 'No contact number'}
+                                    {patient.cp_label} · Age: {formatAge(patient)} · {patient.cp_number ?? 'No contact number'}
                                   </span>
                                 </span>
                                 {active && (
@@ -836,6 +858,74 @@ export default function NewVisitPage() {
                     hint="Used as the record’s CP number."
                     required
                   />
+
+                  {/* Date of Birth — cannot be in future */}
+                  <div>
+                    <label
+                      htmlFor="new_date_of_birth"
+                      className="mb-1.5 block text-[13px] font-medium text-espresso"
+                    >
+                      Date of Birth
+                    </label>
+                    <input
+                      id="new_date_of_birth"
+                      type="date"
+                      max={toDateKey()}
+                      value={newPatient.date_of_birth}
+                      onChange={(event) => {
+                        setNewPatient((prev) => ({ ...prev, date_of_birth: event.target.value }))
+                        if (errors.date_of_birth) setErrors((prev) => ({ ...prev, date_of_birth: '' }))
+                      }}
+                      aria-describedby={errors.date_of_birth ? 'new-dob-error' : undefined}
+                      aria-invalid={errors.date_of_birth ? 'true' : undefined}
+                      className="h-11 w-full rounded-[var(--radius-control)] border border-champagne bg-surface px-3.5 text-sm text-espresso transition-[border-color,box-shadow] focus:border-gold focus:ring-2 focus:ring-gold/20 focus:outline-none disabled:cursor-not-allowed disabled:bg-ivory disabled:text-warmgray [color-scheme:light] dark:[color-scheme:dark]"
+                    />
+                    {errors.date_of_birth && (
+                      <p id="new-dob-error" className="mt-1.5 text-xs text-error" role="alert">
+                        {errors.date_of_birth}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Age — computed when DOB is entered, editable fallback otherwise */}
+                  <div>
+                    <label
+                      htmlFor="new_age_field"
+                      className="mb-1.5 block text-[13px] font-medium text-espresso"
+                    >
+                      Age
+                      {newPatient.date_of_birth && (
+                        <span className="ml-2 text-[11px] font-normal text-warmgray">(auto-calculated)</span>
+                      )}
+                    </label>
+                    {newPatient.date_of_birth ? (
+                      <div
+                        id="new_age_field"
+                        className="flex h-11 w-full items-center rounded-[var(--radius-control)] border border-champagne/60 bg-ivory px-3.5 text-sm text-warmgray"
+                      >
+                        {computeAgeFromDob(newPatient.date_of_birth) !== null
+                          ? `${computeAgeFromDob(newPatient.date_of_birth)} years old`
+                          : '—'}
+                      </div>
+                    ) : (
+                      <Input
+                        id="new_age_field"
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        max={120}
+                        step={1}
+                        placeholder="e.g. 35"
+                        value={newPatient.age}
+                        onChange={(event) => {
+                          setNewPatient((prev) => ({ ...prev, age: event.target.value }))
+                          if (errors.age) setErrors((prev) => ({ ...prev, age: '' }))
+                        }}
+                        error={errors.age}
+                        hint="Leave blank if unknown."
+                      />
+                    )}
+                  </div>
                   <Input
                     id="patient_address"
                     label="Address"

@@ -51,6 +51,7 @@ import {
 } from '@/lib/constants'
 import { printOrderReceipt } from '@/utils/receipt'
 import { formatDate, formatTime, formatPeso } from '@/utils/format'
+import { formatAge } from '@/utils/age'
 import { statusLabel } from '@/utils/strings'
 import { AppError } from '@/utils/errors'
 import { cn } from '@/lib/utils'
@@ -126,6 +127,7 @@ function PatientCard({ group, onClick }) {
                 <p className="truncate text-sm font-semibold text-espresso">{group.patient_name}</p>
                 <p className="text-[12px] text-warmgray">
                   {group.orderCount} {group.orderCount === 1 ? 'order' : 'orders'}
+                  {group.patient ? ` · Age: ${formatAge(group.patient)}` : ''}
                   {group.patient_phone ? ` · ${group.patient_phone}` : ''}
                 </p>
               </div>
@@ -436,6 +438,7 @@ export default function OrdersPage() {
         patient_id: order.patient_id,
         patient_name: order.patient_name,
         patient_phone: order.patient_phone,
+        patient: order.patient,
         orders: [],
         total: 0,
         paid: 0,
@@ -847,9 +850,11 @@ export default function OrdersPage() {
                           <span className="block truncate text-sm font-medium text-espresso">
                             {group.patient_name}
                           </span>
-                          {group.patient_phone && (
-                            <span className="block text-[11px] text-warmgray">{group.patient_phone}</span>
-                          )}
+                          <span className="block text-[11px] text-warmgray">
+                            {group.patient ? `Age: ${formatAge(group.patient)}` : ''}
+                            {group.patient && group.patient_phone ? ' · ' : ''}
+                            {group.patient_phone ?? ''}
+                          </span>
                         </div>
                       </div>
                     </TD>
@@ -1101,7 +1106,14 @@ function OrderDrawer({ order, busy, isOnline, onClose, onPay, onStatusChange, on
               <dl className="mt-3 grid gap-x-6 sm:grid-cols-2">
                 <div className="border-b border-champagne/70 py-2.5">
                   <dt className="text-[11px] tracking-wider text-warmgray uppercase">Patient</dt>
-                  <dd className="mt-0.5 text-sm text-espresso">{order.patient_name}</dd>
+                  <dd className="mt-0.5 text-sm text-espresso">
+                    {order.patient_name}
+                    {order.patient && (
+                      <span className="ml-2 text-xs font-normal text-warmgray">
+                        • Age: {formatAge(order.patient)}
+                      </span>
+                    )}
+                  </dd>
                 </div>
                 <div className="border-b border-champagne/70 py-2.5">
                   <dt className="text-[11px] tracking-wider text-warmgray uppercase">Order date</dt>

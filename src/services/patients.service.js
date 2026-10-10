@@ -72,7 +72,7 @@ export async function listPatientRoster(search = '') {
   try {
     let query = supabase
       .from('patients')
-      .select('id, full_name, cp_number, address')
+      .select('id, full_name, cp_number, address, date_of_birth, age')
       .is('archived_at', null)
     const term = search.trim()
     if (term) {
@@ -93,7 +93,7 @@ export async function listPatients(search = '') {
   try {
     let query = supabase
       .from('patients')
-      .select('id, full_name, cp_number, address, notes, created_at, updated_at')
+      .select('id, full_name, cp_number, address, notes, date_of_birth, age, created_at, updated_at')
       .is('archived_at', null)
     const term = search.trim()
     if (term) {
@@ -153,7 +153,7 @@ export async function getPatientDetail(patientId) {
   try {
     const patientResult = await supabase
       .from('patients')
-      .select('id, full_name, cp_number, address, notes, created_at, updated_at')
+      .select('id, full_name, cp_number, address, notes, date_of_birth, age, created_at, updated_at')
       .eq('id', patientId)
       .maybeSingle()
 
@@ -230,6 +230,10 @@ export async function createPatient(input) {
     cp_number: toNullIfBlank(input.cp_number),
     address: toNullIfBlank(input.address),
     notes: toNullIfBlank(input.notes),
+    date_of_birth: input.date_of_birth || null,
+    age: input.date_of_birth
+      ? null
+      : (input.age != null && input.age !== '' ? Number(input.age) : null),
   }
 
   try {
@@ -245,6 +249,10 @@ export async function updatePatient(patientId, input) {
     cp_number: toNullIfBlank(input.cp_number),
     address: toNullIfBlank(input.address),
     notes: toNullIfBlank(input.notes),
+    date_of_birth: input.date_of_birth || null,
+    age: input.date_of_birth
+      ? null
+      : (input.age != null && input.age !== '' ? Number(input.age) : null),
   }
 
   try {

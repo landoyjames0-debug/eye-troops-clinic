@@ -8,6 +8,7 @@ import { PrescriptionTable } from '@/components/visits/prescription-table'
 import { useAsync } from '@/hooks/use-async'
 import { getPatientDetail } from '@/services/patients.service'
 import { formatDate, formatDateShort, formatPeso, formatTime } from '@/utils/format'
+import { formatAge } from '@/utils/age'
 
 function SectionLabel({ children }) {
   return (
@@ -126,6 +127,8 @@ export function PatientDrawer({ patientId, cpLabel, onClose, onSelectOrder, onCa
               <SectionLabel>Patient information</SectionLabel>
               <dl className="mt-1.5 grid gap-x-6 sm:grid-cols-2">
                 <Field label="CP Number">{cpLabel ?? '—'}</Field>
+                <Field label="Age">{formatAge(patient, { unit: true })}</Field>
+                <Field label="Date of birth">{patient.date_of_birth ? formatDate(patient.date_of_birth) : '—'}</Field>
                 <Field label="Contact">{patient.cp_number || '—'}</Field>
                 <Field label="Address">{patient.address || '—'}</Field>
                 <Field label="Date added">{formatDateShort(patient.created_at)}</Field>

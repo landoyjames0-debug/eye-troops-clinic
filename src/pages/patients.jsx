@@ -24,6 +24,7 @@ import { PatientFormDialog } from '@/components/patients/patient-form-dialog'
 import { invalidateClinicQueries } from '@/lib/query-client'
 import { TABLE_PAGE_SIZE } from '@/lib/constants'
 import { formatDateShort, formatPeso, formatTime } from '@/utils/format'
+import { formatAge } from '@/utils/age'
 import { SearchInput } from '@/components/ui/search-input'
 import { cn } from '@/lib/utils'
 
@@ -301,6 +302,7 @@ export default function PatientsPage() {
                 <THead>
                   <tr>
                     <TH>Patient</TH>
+                    <TH className="w-24">Age</TH>
                     <TH className="w-32">CP Number</TH>
                     <TH className="w-44">Contact</TH>
                     <TH className="w-36">Last Visit</TH>
@@ -325,6 +327,9 @@ export default function PatientsPage() {
                             </p>
                           </div>
                         </div>
+                      </TD>
+                      <TD className="tabular text-[13px] text-warmgray">
+                        {formatAge(patient)}
                       </TD>
                       <TD>
                         <span className="tabular rounded-md bg-ivory px-2 py-0.5 text-[12px] font-medium text-warmgray ring-1 ring-champagne/70 ring-inset">
@@ -418,9 +423,14 @@ export default function PatientsPage() {
                         <Avatar name={patient.full_name} />
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-espresso">{patient.full_name}</p>
-                          <span className="mt-1 inline-flex rounded-md bg-ivory px-2 py-0.5 text-[11px] font-medium text-warmgray ring-1 ring-champagne/70 ring-inset">
-                            {patient.cp_label}
-                          </span>
+                          <div className="mt-1 flex items-center gap-2">
+                            <span className="inline-flex rounded-md bg-ivory px-2 py-0.5 text-[11px] font-medium text-warmgray ring-1 ring-champagne/70 ring-inset">
+                              {patient.cp_label}
+                            </span>
+                            <span className="text-[12px] text-warmgray">
+                              Age: {formatAge(patient)}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </button>
