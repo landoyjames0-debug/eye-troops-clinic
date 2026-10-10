@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef } from 'react'
 import { Banknote } from 'lucide-react'
+import { DatePicker } from '@/components/DatePicker'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input, Select, Textarea } from '@/components/ui/input'
@@ -110,6 +111,9 @@ export function AddPaymentDialog({ order, onClose, onSaved }) {
       nextErrors.amount = `Amount exceeds the remaining balance of ${formatPeso(order.balance)}.`
     }
     if (!form.payment_date) nextErrors.payment_date = 'Payment date is required.'
+    else if (form.payment_date > toDateKey()) {
+      nextErrors.payment_date = 'Payment date cannot be in the future.'
+    }
 
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
@@ -226,17 +230,21 @@ export function AddPaymentDialog({ order, onClose, onSaved }) {
           )}
 
           <div className="grid grid-cols-2 items-end gap-4">
-            <Input
-              id="payment_date"
-              label="Payment date *"
-              type="date"
-              value={form.payment_date}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, payment_date: event.target.value }))
-              }
-              error={errors.payment_date}
-              required
-            />
+            <div className="min-w-0">
+              <DatePicker
+                id="payment_date"
+                label="Payment date"
+                value={form.payment_date}
+                onChange={(payment_date) =>
+                  setForm((prev) => ({ ...prev, payment_date }))
+                }
+                maxDate={toDateKey()}
+                error={errors.payment_date}
+              />
+              <p className="mt-1.5 text-xs text-warmgray">
+                Past dates are allowed. Future dates are blocked.
+              </p>
+            </div>
 
             <Select
               id="method"

@@ -325,6 +325,11 @@ export default function PatientsPage() {
                             <p className="truncate text-sm font-semibold text-espresso">
                               {patient.full_name}
                             </p>
+                            {patient.is_backdated && (
+                              <span className="mt-1 inline-flex items-center rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning">
+                                Backdated
+                              </span>
+                            )}
                           </div>
                         </div>
                       </TD>
@@ -423,6 +428,11 @@ export default function PatientsPage() {
                         <Avatar name={patient.full_name} />
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-espresso">{patient.full_name}</p>
+                          {patient.is_backdated && (
+                            <span className="mt-1 inline-flex items-center rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning">
+                              Backdated
+                            </span>
+                          )}
                           <div className="mt-1 flex items-center gap-2">
                             <span className="inline-flex rounded-md bg-ivory px-2 py-0.5 text-[11px] font-medium text-warmgray ring-1 ring-champagne/70 ring-inset">
                               {patient.cp_label}

@@ -91,9 +91,14 @@ export async function getTodayActivity(date = toDateKey()) {
   const orderById = new Map(orders.map((order) => [order.id, order]))
   const rows = []
 
+  const recordDateKey = (record) => {
+    const raw = record?.visit_date ?? record?.order_date ?? record?.created_at ?? record?.updated_at
+    return raw ? toDateKey(raw) : null
+  }
+
   for (const order of orders) {
     const patient = order.patient_name ?? 'Unknown patient'
-    if (String(order.order_date).startsWith(date)) {
+    if (recordDateKey(order) === date) {
       rows.push({
         id: `order-${order.id}`,
         order_id: order.id,

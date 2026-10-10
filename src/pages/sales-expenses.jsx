@@ -12,6 +12,7 @@ import {
   Wallet,
 } from 'lucide-react'
 import { PageHeader, SectionTitle } from '@/components/layout/page-header'
+import { DatePicker } from '@/components/DatePicker'
 import { Card, Table, TBody, TD, TH, THead, TR } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/components/ui/search-input'
@@ -398,7 +399,14 @@ function paymentSearchValues(payment) {
 }
 
 function expenseSearchValues(expense) {
-  return [expense.expense_date, expense.category, expense.description, expense.amount]
+  return [
+    expense.expense_date,
+    expense.category,
+    expense.description,
+    expense.amount,
+    expense.payment_method ?? expense.paymentMethod,
+    expense.notes,
+  ]
 }
 
 const SALES_COLUMNS = [
@@ -416,10 +424,9 @@ const SALES_COLUMNS = [
 const EXPENSE_COLUMNS = [
   { key: 'date', header: 'Date' },
   { key: 'category', header: 'Category' },
-  { key: 'vendor', header: 'Vendor' },
   { key: 'description', header: 'Description' },
   { key: 'amount', header: 'Amount', format: formatCsvNumber },
-  { key: 'paymentMethod', header: 'Payment Method' },
+  { key: 'paymentMethod', header: 'Payment method' },
   { key: 'notes', header: 'Notes' },
 ]
 
@@ -720,24 +727,24 @@ export default function SalesExpensesPage() {
         rows = expensesForExport.map((expense) => ({
           date: expense.expense_date,
           category: expense.category,
-          vendor: '',
           description: expense.description ?? '',
           amount: expense.amount,
-          paymentMethod: '',
-          notes: '',
+          paymentMethod: expense.payment_method ?? expense.paymentMethod ?? '',
+          notes: expense.notes ?? '',
         }))
         const total = toAmount(rows.reduce((sum, row) => sum + Number(row.amount), 0))
         rows.push({
           date: '',
           category: 'TOTAL',
-          vendor: '',
           description: '',
           amount: total,
           paymentMethod: '',
           notes: '',
         })
         columns = EXPENSE_COLUMNS
-        filename = `eye-troops-expenses_${bounds.from}_to_${bounds.to}.csv`
+        filename = range === 'year' && month === 'all'
+          ? `expenses-${year}.csv`
+          : `expenses-${bounds.from}_to_${bounds.to}.csv`
       } else {
         const [allPaymentsForExport, allExpensesForExport] = await Promise.all([
           listPaymentExportRows(bounds.from, bounds.to),
@@ -873,19 +880,6 @@ export default function SalesExpensesPage() {
               <Plus className="size-4" aria-hidden="true" />
               Add expense
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              loading={exporting === 'expenses'}
-              loadingText="Exporting..."
-              disabled={!isOnline || Boolean(exporting) || expenses.loading || Boolean(expenses.error) || expenseRows.length === 0}
-              onClick={() => void exportCsv('expenses')}
-              aria-label="Export expenses CSV"
-            >
-              <Download className="size-4" aria-hidden="true" />
-              Export CSV
-            </Button>
           </div>
         }
       />
@@ -1013,32 +1007,32 @@ export default function SalesExpensesPage() {
 
             {range === 'custom' && (
               <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-                <label className="grid gap-1 text-[11px] font-semibold text-warmgray">
-                  From
-                  <input
-                    type="date"
+                <div className="min-w-0">
+                  <DatePicker
+                    id="finance-period-from"
+                    label="From"
+                    required={false}
                     value={customFrom}
-                    max={customTo || undefined}
-                    onChange={(event) => updatePeriodQuery({
+                    maxDate={customTo || undefined}
+                    onChange={(date) => updatePeriodQuery({
                       range: 'custom',
-                      from: event.target.value,
-                      to: customTo && customTo >= event.target.value ? customTo : event.target.value,
+                      from: date,
+                      to: customTo && customTo >= date ? customTo : date,
                     })}
                     aria-label="Custom period start date"
-                    className="h-9 rounded-control border border-champagne bg-surface px-2.5 text-[12px] text-espresso focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                   />
-                </label>
-                <label className="grid gap-1 text-[11px] font-semibold text-warmgray">
-                  To
-                  <input
-                    type="date"
+                </div>
+                <div className="min-w-0">
+                  <DatePicker
+                    id="finance-period-to"
+                    label="To"
+                    required={false}
                     value={customTo}
-                    min={customFrom || undefined}
-                    onChange={(event) => updatePeriodQuery({ range: 'custom', to: event.target.value })}
+                    minDate={customFrom || undefined}
+                    onChange={(date) => updatePeriodQuery({ range: 'custom', to: date })}
                     aria-label="Custom period end date"
-                    className="h-9 rounded-control border border-champagne bg-surface px-2.5 text-[12px] text-espresso focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                   />
-                </label>
+                </div>
               </div>
             )}
 
@@ -1390,11 +1384,23 @@ export default function SalesExpensesPage() {
           <SectionTitle
             description="Clinic costs recorded in the selected period."
             action={(
-              !expenses.loading && !expenses.error && expenseCount === 0 && (
-                <span className="text-xs text-warmgray" role="status">
-                  Nothing to export for the selected filters.
+              <div className="flex flex-col items-end gap-1">
+                <span title={!expenses.loading && !expenses.error && expenseRows.length === 0 ? 'No expenses to export' : undefined}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    loading={exporting === 'expenses'}
+                    loadingText="Exporting..."
+                    disabled={!isOnline || Boolean(exporting) || expenses.loading || Boolean(expenses.error) || expenseRows.length === 0}
+                    onClick={() => void exportCsv('expenses')}
+                    aria-label="Export expenses CSV"
+                  >
+                    <Download className="size-4" aria-hidden="true" />
+                    Export CSV
+                  </Button>
                 </span>
-              )
+              </div>
             )}
           >
             <span className="inline-flex items-center gap-2.5">

@@ -13,6 +13,7 @@ import {
   Wallet,
 } from 'lucide-react'
 import { PageHeader, Avatar } from '@/components/layout/page-header'
+import { DatePicker } from '@/components/DatePicker'
 import { Card, Table, TBody, TD, TH, THead, TR } from '@/components/ui/card'
 import { Badge, StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -776,28 +777,28 @@ export default function OrdersPage() {
           </div>
 
           <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-            <label className="grid gap-1 text-[11px] font-semibold tracking-wide text-warmgray uppercase">
-              From
-              <input
-                type="date"
+            <div className="min-w-0">
+              <DatePicker
+                id="orders-date-from"
+                label="From"
+                required={false}
                 value={dateFrom}
-                max={dateTo || undefined}
-                onChange={(event) => updateQuery('from', event.target.value)}
+                maxDate={dateTo || undefined}
+                onChange={(date) => updateQuery('from', date)}
                 aria-label="Orders from date"
-                className="h-9 min-w-0 rounded-control border border-champagne bg-surface px-2.5 text-[12px] font-medium normal-case tracking-normal text-espresso focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
               />
-            </label>
-            <label className="grid gap-1 text-[11px] font-semibold tracking-wide text-warmgray uppercase">
-              To
-              <input
-                type="date"
+            </div>
+            <div className="min-w-0">
+              <DatePicker
+                id="orders-date-to"
+                label="To"
+                required={false}
                 value={dateTo}
-                min={dateFrom || undefined}
-                onChange={(event) => updateQuery('to', event.target.value)}
+                minDate={dateFrom || undefined}
+                onChange={(date) => updateQuery('to', date)}
                 aria-label="Orders to date"
-                className="h-9 min-w-0 rounded-control border border-champagne bg-surface px-2.5 text-[12px] font-medium normal-case tracking-normal text-espresso focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
               />
-            </label>
+            </div>
             <span className="hidden text-[11px] text-warmgray sm:block">Order date range</span>
           </div>
         </div>

@@ -45,6 +45,7 @@ export function DatePicker({
   const maxDateKey = normalizeDateKey(maxDate)
   const describedBy = [externalDescribedBy, error ? `${id}-error` : null].filter(Boolean).join(' ') || undefined
   const [open, setOpen] = useState(false)
+  const [selectingYear, setSelectingYear] = useState(false)
   const [visibleMonth, setVisibleMonth] = useState(() => atNoon(value || todayKey))
   const [focusedDate, setFocusedDate] = useState(value || todayKey)
   const [desktopPosition, setDesktopPosition] = useState(null)
@@ -52,6 +53,7 @@ export function DatePicker({
   const panelRef = useRef(null)
   const triggerRef = useRef(null)
   const dayRefs = useRef(new Map())
+  const yearRefs = useRef(new Map())
   const wasOpen = useRef(false)
   const days = useMemo(() => monthDays(visibleMonth), [visibleMonth])
 
@@ -72,12 +74,13 @@ export function DatePicker({
   useEffect(() => {
     if (open) {
       wasOpen.current = true
-      dayRefs.current.get(focusedDate)?.focus()
+      if (selectingYear) yearRefs.current.get(visibleMonth.getFullYear())?.focus()
+      else dayRefs.current.get(focusedDate)?.focus()
     } else if (wasOpen.current) {
       wasOpen.current = false
       triggerRef.current?.focus()
     }
-  }, [focusedDate, open])
+  }, [focusedDate, open, selectingYear, visibleMonth])
 
   const close = () => setOpen(false)
   const isAllowed = (dateKey) =>
@@ -87,6 +90,7 @@ export function DatePicker({
     if (!isAllowed(key)) return
     onChange(key)
     setFocusedDate(key)
+    setSelectingYear(false)
     close()
   }
   const shiftMonth = (amount) => {
@@ -103,7 +107,28 @@ export function DatePicker({
     setFocusedDate(toDateKey(next))
     setVisibleMonth(new Date(next.getFullYear(), next.getMonth(), 1, 12))
   }
+  const yearWindowStart = Math.floor((visibleMonth.getFullYear() - 1) / 12) * 12 + 1
+  const years = Array.from({ length: 12 }, (_, index) => yearWindowStart + index)
+  const minYear = minDateKey ? Number(minDateKey.slice(0, 4)) : 1
+  const maxYear = maxDateKey ? Number(maxDateKey.slice(0, 4)) : 9999
+  const shiftYearWindow = (amount) => {
+    const year = Math.max(minYear, Math.min(maxYear, yearWindowStart + amount * 12))
+    setVisibleMonth(new Date(year, visibleMonth.getMonth(), 1, 12))
+  }
+  const selectYear = (year) => {
+    let month = new Date(year, visibleMonth.getMonth(), 1, 12)
+    const firstDay = toDateKey(month)
+    const lastDay = toDateKey(new Date(year, month.getMonth() + 1, 0, 12))
+    if (minDateKey && lastDay < minDateKey) month = atNoon(minDateKey)
+    else if (maxDateKey && firstDay > maxDateKey) month = atNoon(maxDateKey)
+
+    const monthKey = toDateKey(month)
+    setVisibleMonth(new Date(month.getFullYear(), month.getMonth(), 1, 12))
+    setFocusedDate(minDateKey && monthKey < minDateKey ? minDateKey : monthKey)
+    setSelectingYear(false)
+  }
   const openPicker = () => {
+    setSelectingYear(false)
     if (value) {
       setVisibleMonth(atNoon(value))
       setFocusedDate(value)
@@ -172,7 +197,7 @@ export function DatePicker({
               if (event.key === 'Escape') {
                 event.preventDefault()
                 close()
-              } else if (event.key.startsWith('Arrow')) {
+              } else if (!selectingYear && event.key.startsWith('Arrow')) {
                 event.preventDefault()
                 const step = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : event.key === 'ArrowUp' ? -7 : 7
                 moveFocus(atNoon(focusedDate), step)
@@ -182,53 +207,103 @@ export function DatePicker({
             className="pointer-events-auto max-h-[90dvh] w-full overflow-y-auto rounded-t-card border border-champagne bg-surface p-3 shadow-pop sm:w-75 sm:max-w-[calc(100vw-16px)] sm:rounded-card motion-reduce:animate-none"
           >
             <div className="mb-2 flex items-center justify-between">
-              <button type="button" aria-label="Previous month" disabled={!canGoPrevious} onClick={() => shiftMonth(-1)} className="flex size-10 items-center justify-center rounded-control text-espresso hover:bg-gold-light/60 focus-visible:outline-gold disabled:opacity-35">
+              <button
+                type="button"
+                aria-label={selectingYear ? 'Previous years' : 'Previous month'}
+                disabled={selectingYear ? yearWindowStart <= minYear : !canGoPrevious}
+                onClick={() => selectingYear ? shiftYearWindow(-1) : shiftMonth(-1)}
+                className="flex size-10 items-center justify-center rounded-control text-espresso hover:bg-gold-light/60 focus-visible:outline-gold disabled:opacity-35"
+              >
                 <ChevronLeft className="size-4" aria-hidden="true" />
               </button>
-              <h2 className="text-sm font-semibold text-espresso">
-                {new Intl.DateTimeFormat('en-PH', { month: 'long', year: 'numeric' }).format(visibleMonth)}
-              </h2>
-              <button type="button" aria-label="Next month" disabled={!canGoNext} onClick={() => shiftMonth(1)} className="flex size-10 items-center justify-center rounded-control text-espresso hover:bg-gold-light/60 focus-visible:outline-gold disabled:opacity-35">
+              <button
+                type="button"
+                aria-label={selectingYear ? 'Return to calendar' : 'Choose year'}
+                aria-expanded={selectingYear}
+                onClick={() => setSelectingYear((current) => !current)}
+                className="rounded-control px-2 py-1 text-sm font-semibold text-espresso hover:bg-gold-light/60 focus-visible:outline-2 focus-visible:outline-gold"
+              >
+                {selectingYear
+                  ? `${years[0]}–${years[years.length - 1]}`
+                  : new Intl.DateTimeFormat('en-PH', { month: 'long', year: 'numeric' }).format(visibleMonth)}
+              </button>
+              <button
+                type="button"
+                aria-label={selectingYear ? 'Next years' : 'Next month'}
+                disabled={selectingYear ? yearWindowStart + 11 >= maxYear : !canGoNext}
+                onClick={() => selectingYear ? shiftYearWindow(1) : shiftMonth(1)}
+                className="flex size-10 items-center justify-center rounded-control text-espresso hover:bg-gold-light/60 focus-visible:outline-gold disabled:opacity-35"
+              >
                 <ChevronRight className="size-4" aria-hidden="true" />
               </button>
             </div>
-            <div className="grid grid-cols-7 text-center text-[12px] font-medium text-warmgray" aria-hidden="true">
-              {WEEKDAYS.map((day) => <span key={day} className="py-1.5">{day}</span>)}
-            </div>
-            <div className="grid grid-cols-7 gap-y-1" role="grid" aria-label="Calendar">
-              {days.map((date) => {
-                const dateKey = toDateKey(date)
-                const isSelected = dateKey === value
-                const isToday = dateKey === todayKey
-                const isAllowedDate = isAllowed(dateKey)
-                const sameMonth = date.getMonth() === visibleMonth.getMonth()
-                return (
+            {selectingYear ? (
+              <div className="grid grid-cols-3 gap-1" role="grid" aria-label="Choose year">
+                {years.map((year) => (
                   <button
-                    key={dateKey}
+                    key={year}
                     ref={(element) => {
-                      if (element) dayRefs.current.set(dateKey, element)
-                      else dayRefs.current.delete(dateKey)
+                      if (element) yearRefs.current.set(year, element)
+                      else yearRefs.current.delete(year)
                     }}
                     type="button"
                     role="gridcell"
-                    aria-label={new Intl.DateTimeFormat('en-PH', { dateStyle: 'full' }).format(date)}
-                    aria-selected={isSelected}
-                    tabIndex={dateKey === focusedDate ? 0 : -1}
-                    disabled={!isAllowedDate}
-                    onFocus={() => setFocusedDate(dateKey)}
-                    onClick={() => selectDate(date)}
-                    className="flex h-10 w-full items-center justify-center focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-gold disabled:cursor-not-allowed disabled:opacity-30"
+                    aria-selected={year === visibleMonth.getFullYear()}
+                    tabIndex={year === visibleMonth.getFullYear() ? 0 : -1}
+                    disabled={year < minYear || year > maxYear}
+                    onClick={() => selectYear(year)}
+                    className={cn(
+                      'h-10 rounded-control text-sm focus-visible:outline-2 focus-visible:outline-gold disabled:cursor-not-allowed disabled:opacity-30',
+                      year === visibleMonth.getFullYear()
+                        ? 'bg-gold text-espresso'
+                        : 'text-espresso hover:bg-gold-light',
+                    )}
                   >
-                    <span className={cn(
-                      'flex size-9 items-center justify-center rounded-full text-sm motion-reduce:transition-none',
-                      isSelected ? 'bg-gold text-espresso' : 'text-espresso hover:bg-gold-light',
-                      isToday && !isSelected && 'ring-1 ring-inset ring-gold',
-                      !sameMonth && 'text-warmgray/35',
-                    )}>{date.getDate()}</span>
+                    {year}
                   </button>
-                )
-              })}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-7 text-center text-[12px] font-medium text-warmgray" aria-hidden="true">
+                  {WEEKDAYS.map((day) => <span key={day} className="py-1.5">{day}</span>)}
+                </div>
+                <div className="grid grid-cols-7 gap-y-1" role="grid" aria-label="Calendar">
+                  {days.map((date) => {
+                    const dateKey = toDateKey(date)
+                    const isSelected = dateKey === value
+                    const isToday = dateKey === todayKey
+                    const isAllowedDate = isAllowed(dateKey)
+                    const sameMonth = date.getMonth() === visibleMonth.getMonth()
+                    return (
+                      <button
+                        key={dateKey}
+                        ref={(element) => {
+                          if (element) dayRefs.current.set(dateKey, element)
+                          else dayRefs.current.delete(dateKey)
+                        }}
+                        type="button"
+                        role="gridcell"
+                        aria-label={new Intl.DateTimeFormat('en-PH', { dateStyle: 'full' }).format(date)}
+                        aria-selected={isSelected}
+                        tabIndex={dateKey === focusedDate ? 0 : -1}
+                        disabled={!isAllowedDate}
+                        onFocus={() => setFocusedDate(dateKey)}
+                        onClick={() => selectDate(date)}
+                        className="flex h-10 w-full items-center justify-center focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-gold disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        <span className={cn(
+                          'flex size-9 items-center justify-center rounded-full text-sm motion-reduce:transition-none',
+                          isSelected ? 'bg-gold text-espresso' : 'text-espresso hover:bg-gold-light',
+                          isToday && !isSelected && 'ring-1 ring-inset ring-gold',
+                          !sameMonth && 'text-warmgray/35',
+                        )}>{date.getDate()}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            )}
             <div className="mt-2 flex justify-between border-t border-champagne pt-2">
               <button type="button" disabled={!isAllowed(todayKey)} className="min-h-10 px-3 text-sm font-medium text-gold-dark hover:bg-gold-light/60 disabled:opacity-40" onClick={() => selectDate(atNoon(todayKey))}>Today</button>
               <button type="button" className="min-h-10 px-3 text-sm font-medium text-warmgray hover:bg-gold-light/60" onClick={() => { onChange(''); close() }}>Clear</button>

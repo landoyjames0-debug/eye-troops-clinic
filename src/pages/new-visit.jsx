@@ -20,6 +20,7 @@ import { PageHeader, SectionTitle, Avatar } from '@/components/layout/page-heade
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea, controlVariants, Label } from '@/components/ui/input'
+import { DatePicker } from '@/components/DatePicker'
 import { VisitDateTimeField } from '@/components/visits/visit-datetime-field'
 import { ErrorNote, Skeleton, EmptyState } from '@/components/ui/feedback'
 import { OrderItemDrawer } from '@/components/visits/order-item-drawer'
@@ -347,6 +348,7 @@ export default function NewVisitPage() {
     cp_number: '',
     address: '',
     notes: '',
+    visit_date: toDateKey(),
     date_of_birth: '',
     age: '',
   })
@@ -460,6 +462,7 @@ export default function NewVisitPage() {
           new_patient: mode === 'new'
             ? {
                 ...newPatient,
+                visit_date: newPatient.visit_date || toDateKey(),
                 date_of_birth: newPatient.date_of_birth || null,
                 age: newPatient.date_of_birth
                   ? null
@@ -473,9 +476,9 @@ export default function NewVisitPage() {
           prescription: hasPrescription(rx) ? rx : null,
           description: hasOrder ? describeOrderItems(items.filter((item) => itemTotal(item) > 0)) : null,
           total_amount: hasOrder ? orderTotal : null,
-          order_date: toDateKey(),
+          order_date: toDateKey(new Date(visitDate)),
           initial_payment: hasOrder ? paid : 0,
-          payment_date: hasOrder && paid > 0 ? toDateKey() : null,
+          payment_date: hasOrder && paid > 0 ? toDateKey(new Date(visitDate)) : null,
           payment_notes: hasOrder && paid > 0 ? describePayment(method, paymentType) : null,
           idempotency_key: progress.transactionIdempotencyKey,
         })
@@ -543,6 +546,9 @@ export default function NewVisitPage() {
     }
     if (mode === 'new' && !newPatient.cp_number.trim()) {
       nextErrors.cp_number = 'Enter the patient’s mobile number.'
+    }
+    if (mode === 'new' && newPatient.visit_date && newPatient.visit_date > toDateKey()) {
+      nextErrors.visit_date = 'Patient visit date cannot be in the future.'
     }
     if (
       mode === 'new' &&
@@ -859,33 +865,30 @@ export default function NewVisitPage() {
                     required
                   />
 
-                  {/* Date of Birth — cannot be in future */}
-                  <div>
-                    <label
-                      htmlFor="new_date_of_birth"
-                      className="mb-1.5 block text-[13px] font-medium text-espresso"
-                    >
-                      Date of Birth
-                    </label>
-                    <input
-                      id="new_date_of_birth"
-                      type="date"
-                      max={toDateKey()}
-                      value={newPatient.date_of_birth}
-                      onChange={(event) => {
-                        setNewPatient((prev) => ({ ...prev, date_of_birth: event.target.value }))
-                        if (errors.date_of_birth) setErrors((prev) => ({ ...prev, date_of_birth: '' }))
-                      }}
-                      aria-describedby={errors.date_of_birth ? 'new-dob-error' : undefined}
-                      aria-invalid={errors.date_of_birth ? 'true' : undefined}
-                      className="h-11 w-full rounded-[var(--radius-control)] border border-champagne bg-surface px-3.5 text-sm text-espresso transition-[border-color,box-shadow] focus:border-gold focus:ring-2 focus:ring-gold/20 focus:outline-none disabled:cursor-not-allowed disabled:bg-ivory disabled:text-warmgray [color-scheme:light] dark:[color-scheme:dark]"
-                    />
-                    {errors.date_of_birth && (
-                      <p id="new-dob-error" className="mt-1.5 text-xs text-error" role="alert">
-                        {errors.date_of_birth}
-                      </p>
-                    )}
-                  </div>
+                  <DatePicker
+                    id="new_patient_visit_date"
+                    label="Visit date"
+                    value={newPatient.visit_date}
+                    onChange={(visit_date) => {
+                      setNewPatient((prev) => ({ ...prev, visit_date }))
+                      if (errors.visit_date) setErrors((prev) => ({ ...prev, visit_date: '' }))
+                    }}
+                    maxDate={toDateKey()}
+                    error={errors.visit_date}
+                  />
+
+                  <DatePicker
+                    id="new_date_of_birth"
+                    label="Date of Birth"
+                    required={false}
+                    value={newPatient.date_of_birth}
+                    onChange={(date_of_birth) => {
+                      setNewPatient((prev) => ({ ...prev, date_of_birth }))
+                      if (errors.date_of_birth) setErrors((prev) => ({ ...prev, date_of_birth: '' }))
+                    }}
+                    maxDate={toDateKey()}
+                    error={errors.date_of_birth}
+                  />
 
                   {/* Age — computed when DOB is entered, editable fallback otherwise */}
                   <div>

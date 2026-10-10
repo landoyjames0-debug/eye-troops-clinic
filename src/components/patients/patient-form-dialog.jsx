@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Archive, UserRoundPlus } from 'lucide-react'
+import { DatePicker } from '@/components/DatePicker'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea } from '@/components/ui/input'
@@ -24,6 +25,7 @@ function blankForm(patient) {
     cp_number: patient?.cp_number ?? '',
     address: patient?.address ?? '',
     notes: patient?.notes ?? '',
+    visit_date: patient?.visit_date ?? toDateKey(),
     date_of_birth: patient?.date_of_birth ?? '',
     age: patient?.date_of_birth
       ? '' // will be computed; don't prefill manual field when DOB exists
@@ -37,6 +39,7 @@ function formEquals(a, b) {
     a.cp_number === b.cp_number &&
     a.address === b.address &&
     a.notes === b.notes &&
+    a.visit_date === b.visit_date &&
     a.date_of_birth === b.date_of_birth &&
     a.age === b.age
   )
@@ -96,6 +99,7 @@ export function PatientFormDialog({ open, patient = null, onClose, onSaved }) {
       // DOB wins: if present, clear the stored age so the DB has a clean state.
       const payload = {
         ...form,
+        visit_date: form.visit_date || toDateKey(),
         date_of_birth: form.date_of_birth || null,
         age: form.date_of_birth
           ? null  // computed at display time; never stored when DOB is known
@@ -136,6 +140,9 @@ export function PatientFormDialog({ open, patient = null, onClose, onSaved }) {
     const nextErrors = {}
     if (!form.full_name.trim()) nextErrors.full_name = 'Patient name is required.'
     if (!form.cp_number.trim()) nextErrors.cp_number = 'Mobile number is required.'
+    if (form.visit_date && form.visit_date > todayKey()) {
+      nextErrors.visit_date = 'Visit date cannot be in the future.'
+    }
 
     // Validate date_of_birth — must not be a future date
     if (form.date_of_birth && form.date_of_birth > todayKey()) {
@@ -275,35 +282,32 @@ export function PatientFormDialog({ open, patient = null, onClose, onSaved }) {
               required
             />
 
+            <DatePicker
+              id="visit_date"
+              label="Visit Date"
+              value={form.visit_date}
+              onChange={(visit_date) => {
+                setForm((prev) => ({ ...prev, visit_date }))
+                if (errors.visit_date) setErrors((prev) => ({ ...prev, visit_date: '' }))
+              }}
+              maxDate={todayKey()}
+              error={errors.visit_date}
+            />
+
             {/* ── Date of Birth & Age ──────────────────────────────── */}
             <div className="grid gap-4 sm:grid-cols-2">
-              {/* Date of Birth — native date input for reliability */}
-              <div>
-                <label
-                  htmlFor="date_of_birth"
-                  className="mb-1.5 block text-[13px] font-medium text-espresso"
-                >
-                  Date of Birth
-                </label>
-                <input
-                  id="date_of_birth"
-                  type="date"
-                  max={todayKey()}
-                  value={form.date_of_birth}
-                  onChange={(event) => {
-                    setForm((prev) => ({ ...prev, date_of_birth: event.target.value }))
-                    if (errors.date_of_birth) setErrors((prev) => ({ ...prev, date_of_birth: '' }))
-                  }}
-                  aria-describedby={errors.date_of_birth ? 'dob-error' : undefined}
-                  aria-invalid={errors.date_of_birth ? 'true' : undefined}
-                  className="h-11 w-full rounded-[var(--radius-control)] border border-champagne bg-surface px-3.5 text-sm text-espresso transition-[border-color,box-shadow] focus:border-gold focus:ring-2 focus:ring-gold/20 focus:outline-none disabled:cursor-not-allowed disabled:bg-ivory disabled:text-warmgray [color-scheme:light] dark:[color-scheme:dark]"
-                />
-                {errors.date_of_birth && (
-                  <p id="dob-error" className="mt-1.5 text-xs text-error" role="alert">
-                    {errors.date_of_birth}
-                  </p>
-                )}
-              </div>
+              <DatePicker
+                id="date_of_birth"
+                label="Date of Birth"
+                required={false}
+                value={form.date_of_birth}
+                onChange={(date_of_birth) => {
+                  setForm((prev) => ({ ...prev, date_of_birth }))
+                  if (errors.date_of_birth) setErrors((prev) => ({ ...prev, date_of_birth: '' }))
+                }}
+                maxDate={todayKey()}
+                error={errors.date_of_birth}
+              />
 
               {/* Age — read-only computed when DOB present, editable otherwise */}
               <div>
@@ -346,6 +350,7 @@ export function PatientFormDialog({ open, patient = null, onClose, onSaved }) {
                 )}
               </div>
             </div>
+
             {/* ─────────────────────────────────────────────────────── */}
 
             <Input

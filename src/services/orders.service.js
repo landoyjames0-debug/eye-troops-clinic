@@ -52,12 +52,12 @@ export async function listOrders(search = '', status = 'ALL', paymentFilter = 'A
   try {
     let query = supabase
       .from('orders')
-      .select('id, order_number, patient_id, visit_id, description, total_amount, status, order_date, created_at, updated_at')
+      .select('id, order_number, patient_id, visit_id, description, total_amount, status, visit_date, order_date, created_at, updated_at')
     if (status !== 'ALL') query = query.eq('status', status)
     if (search.trim()) query = query.ilike('order_number', `%${search.trim()}%`)
 
     const [orders, payments, patients] = await Promise.all([
-      query.order('order_date', { ascending: false }),
+      query.order('visit_date', { ascending: false }).order('order_date', { ascending: false }),
       supabase.from('payments').select('id, order_id, amount, status'),
       supabase.from('patients').select('id, full_name, cp_number, date_of_birth, age'),
     ])
@@ -94,7 +94,7 @@ export async function getOrderDetail(orderId) {
   try {
     const orderResult = await supabase
       .from('orders')
-      .select('id, order_number, patient_id, visit_id, description, total_amount, status, order_date, created_at, updated_at')
+      .select('id, order_number, patient_id, visit_id, description, total_amount, status, visit_date, order_date, created_at, updated_at')
       .eq('id', orderId)
       .maybeSingle()
     if (orderResult.error) throw orderResult.error
@@ -103,7 +103,7 @@ export async function getOrderDetail(orderId) {
     const payments = unwrap(
       await supabase
         .from('payments')
-        .select('id, order_id, amount, payment_date, notes, status, created_at')
+        .select('id, order_id, amount, payment_date, visit_date, notes, status, created_at')
         .eq('order_id', orderId),
     )
     const patientResult = await supabase

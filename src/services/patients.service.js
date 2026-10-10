@@ -4,6 +4,11 @@ import { toDateKey } from '@/utils/dates'
 import { isClosedAppointmentStatus } from '@/lib/appointment-status'
 import { outstandingBalance, withTotals } from './orders.service'
 
+export function isBackdatedRecord(record) {
+  if (!record?.created_at || !record?.visit_date) return false
+  return toDateKey(record.visit_date) < toDateKey(record.created_at)
+}
+
 function toNullIfBlank(value) {
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : null
@@ -72,7 +77,7 @@ export async function listPatientRoster(search = '') {
   try {
     let query = supabase
       .from('patients')
-      .select('id, full_name, cp_number, address, date_of_birth, age')
+      .select('id, full_name, cp_number, address, date_of_birth, age, visit_date, created_at')
       .is('archived_at', null)
     const term = search.trim()
     if (term) {
@@ -82,6 +87,7 @@ export async function listPatientRoster(search = '') {
     return rows.map((patient, index) => ({
       ...patient,
       cp_label: cpLabel(index),
+      is_backdated: isBackdatedRecord(patient),
     }))
   } catch (caught) {
     throw toAppError(caught, 'loadPatients')
@@ -93,7 +99,7 @@ export async function listPatients(search = '') {
   try {
     let query = supabase
       .from('patients')
-      .select('id, full_name, cp_number, address, notes, date_of_birth, age, created_at, updated_at')
+      .select('id, full_name, cp_number, address, notes, date_of_birth, age, visit_date, created_at, updated_at')
       .is('archived_at', null)
     const term = search.trim()
     if (term) {
@@ -122,6 +128,7 @@ export async function listPatients(search = '') {
         return {
           ...patient,
           cp_label: cpLabel(index),
+          is_backdated: isBackdatedRecord(patient),
           balance: outstandingBalance(orders),
           orders,
         }
@@ -142,7 +149,14 @@ export async function listPatients(search = '') {
           patient.id,
         )
         const nextFollowUp = nextFollowUpForPatient(patient.id, allAppointments)
-        return { ...patient, last_visit: visitsForPatient[0] ?? null, next_follow_up: nextFollowUp }
+        const latestRecordedVisit = visitsForPatient[0] ?? null
+        const patientVisitDate = patient.visit_date
+        const lastVisit = patientVisitDate && (
+          !latestRecordedVisit || patientVisitDate > toDateKey(latestRecordedVisit.visit_date)
+        )
+          ? { visit_date: patientVisitDate }
+          : latestRecordedVisit
+        return { ...patient, last_visit: lastVisit, next_follow_up: nextFollowUp }
       })
   } catch (caught) {
     throw toAppError(caught, 'loadPatients')
@@ -153,7 +167,7 @@ export async function getPatientDetail(patientId) {
   try {
     const patientResult = await supabase
       .from('patients')
-      .select('id, full_name, cp_number, address, notes, date_of_birth, age, created_at, updated_at')
+      .select('id, full_name, cp_number, address, notes, date_of_birth, age, visit_date, created_at, updated_at')
       .eq('id', patientId)
       .maybeSingle()
 
@@ -212,11 +226,12 @@ export async function getPatientDetail(patientId) {
 
     return {
       patient,
+      is_backdated: isBackdatedRecord(patient),
       visits,
       orders,
       appointments,
       balance: outstandingBalance(orders),
-      lastVisit: visits[0] ?? null,
+      lastVisit: visits[0] ?? (patient.visit_date ? { visit_date: patient.visit_date } : null),
       nextFollowUp: nextFollowUpForPatient(patientId, appointments),
     }
   } catch (caught) {
@@ -231,6 +246,7 @@ export async function createPatient(input) {
     address: toNullIfBlank(input.address),
     notes: toNullIfBlank(input.notes),
     date_of_birth: input.date_of_birth || null,
+    visit_date: input.visit_date || toDateKey(),
     age: input.date_of_birth
       ? null
       : (input.age != null && input.age !== '' ? Number(input.age) : null),
@@ -250,6 +266,7 @@ export async function updatePatient(patientId, input) {
     address: toNullIfBlank(input.address),
     notes: toNullIfBlank(input.notes),
     date_of_birth: input.date_of_birth || null,
+    visit_date: input.visit_date || toDateKey(),
     age: input.date_of_birth
       ? null
       : (input.age != null && input.age !== '' ? Number(input.age) : null),

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Receipt } from 'lucide-react'
+import { DatePicker } from '@/components/DatePicker'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input, Select, Textarea } from '@/components/ui/input'
@@ -167,16 +168,12 @@ export function ExpenseDialog({ open, expense = null, defaultDate, onClose, onSa
         <form id="expense-form" onSubmit={handleSubmit} className="space-y-4" noValidate>
           {errors._general && <ErrorNote message={errors._general} />}
 
-          <Input
+          <DatePicker
             id="expense_date"
-            label="Date *"
-            type="date"
+            label="Date"
             value={form.expense_date}
-            onChange={(event) =>
-              setForm((prev) => ({ ...prev, expense_date: event.target.value }))
-            }
+            onChange={(expense_date) => setForm((prev) => ({ ...prev, expense_date }))}
             error={errors.expense_date}
-            required
           />
 
           <Select

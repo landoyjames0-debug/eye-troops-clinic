@@ -7,8 +7,8 @@ const PAGE_SIZE = 1000
 const TABLE_COLUMNS = {
   users: ['id', 'email', 'full_name', 'role', 'job_title', 'phone', 'created_at'],
   patients: [
-    'id', 'full_name', 'cp_number', 'address', 'notes', 'archived_at', 'created_by',
-    'updated_by', 'created_at', 'updated_at',
+    'id', 'full_name', 'cp_number', 'address', 'notes', 'visit_date', 'date_of_birth', 'age',
+    'archived_at', 'created_by', 'updated_by', 'created_at', 'updated_at',
   ],
   visits: ['id', 'patient_id', 'visit_date', 'notes', 'created_by', 'updated_by', 'created_at', 'updated_at'],
   prescriptions: [
@@ -17,11 +17,11 @@ const TABLE_COLUMNS = {
   ],
   orders: [
     'id', 'order_number', 'patient_id', 'visit_id', 'description', 'total_amount', 'status',
-    'order_date', 'created_by', 'updated_by', 'created_at', 'updated_at',
+    'visit_date', 'order_date', 'created_by', 'updated_by', 'created_at', 'updated_at',
   ],
   payments: [
-    'id', 'order_id', 'amount', 'payment_date', 'notes', 'status', 'voided_at', 'created_by',
-    'updated_by', 'created_at', 'updated_at',
+    'id', 'order_id', 'amount', 'visit_date', 'payment_date', 'notes', 'status', 'voided_at',
+    'created_by', 'updated_by', 'created_at', 'updated_at',
   ],
   order_status_history: ['id', 'order_id', 'status', 'changed_at', 'changed_by'],
   expenses: [

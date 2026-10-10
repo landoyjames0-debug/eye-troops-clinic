@@ -129,6 +129,7 @@ export function PatientDrawer({ patientId, cpLabel, onClose, onSelectOrder, onCa
                 <Field label="CP Number">{cpLabel ?? '—'}</Field>
                 <Field label="Age">{formatAge(patient, { unit: true })}</Field>
                 <Field label="Date of birth">{patient.date_of_birth ? formatDate(patient.date_of_birth) : '—'}</Field>
+                <Field label="Visit date">{patient.visit_date ? formatDateShort(patient.visit_date) : '—'}</Field>
                 <Field label="Contact">{patient.cp_number || '—'}</Field>
                 <Field label="Address">{patient.address || '—'}</Field>
                 <Field label="Date added">{formatDateShort(patient.created_at)}</Field>
