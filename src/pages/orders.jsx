@@ -5,6 +5,7 @@ import {
   Banknote,
   Ban,
   Check,
+  Eye,
   Package,
   PackageSearch,
   Pencil,
@@ -26,6 +27,7 @@ import { AddPaymentDialog } from '@/components/orders/add-payment-dialog'
 import { EditOrderDialog } from '@/components/orders/edit-order-dialog'
 import { PrescriptionTable } from '@/components/visits/prescription-table'
 import { PatientDrawer } from '@/components/patients/patient-drawer'
+import { PatientFormDialog } from '@/components/patients/patient-form-dialog'
 import { useAuth } from '@/hooks/use-auth'
 import { useAsync } from '@/hooks/use-async'
 import { useDebouncedSearchParam } from '@/hooks/use-debounced-search-param'
@@ -111,41 +113,70 @@ const STATUS_TONES = {
   },
 }
 
-function PatientCard({ group, onClick }) {
+function PatientCard({ group, onClick, onEdit }) {
+  const statuses = [...new Set(group.orders.map((order) => order.status))]
+
   return (
-    <button
-      type="button"
-      aria-label={`Open ${group.patient_name}'s ${group.orderCount} orders`}
-      className="group relative flex w-full cursor-pointer items-start gap-3.5 border-b border-champagne/60 px-4 py-4 text-left transition-colors hover:bg-gold-light/20 focus-visible:outline-2 focus-visible:outline-gold motion-reduce:transition-none"
-      onClick={onClick}
-    >
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-3">
-              <Avatar name={group.patient_name} className="size-9 shrink-0 text-[11px]" />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-espresso">{group.patient_name}</p>
-                <p className="text-[12px] text-warmgray">
-                  {group.orderCount} {group.orderCount === 1 ? 'order' : 'orders'}
-                  {group.patient ? ` · Age: ${formatAge(group.patient)}` : ''}
-                  {group.patient_phone ? ` · ${group.patient_phone}` : ''}
-                </p>
+    <div className="relative border-b border-champagne/60 transition-colors hover:bg-gold-light/20">
+      <button
+        type="button"
+        aria-label={`Open ${group.patient_name}'s ${group.orderCount} orders`}
+        className="group flex w-full cursor-pointer items-start gap-3.5 px-4 py-4 pr-24 text-left focus-visible:outline-2 focus-visible:outline-gold motion-reduce:transition-none"
+        onClick={onClick}
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-3">
+                <Avatar name={group.patient_name} className="size-9 shrink-0 text-[11px]" />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-espresso">{group.patient_name}</p>
+                  <p className="text-[12px] text-warmgray">
+                    {group.orderCount} {group.orderCount === 1 ? 'order' : 'orders'}
+                    {group.patient ? ` · Age: ${formatAge(group.patient)}` : ''}
+                    {group.patient_phone ? ` · ${group.patient_phone}` : ''}
+                  </p>
+                </div>
               </div>
             </div>
+            <span className="tabular shrink-0 text-sm font-semibold text-error">
+              {formatPeso(group.balance)}
+            </span>
           </div>
-          <span className="tabular shrink-0 text-sm font-semibold text-error">
-            {formatPeso(group.balance)}
-          </span>
-        </div>
 
-        <div className="mt-3 grid grid-cols-3 gap-2 border-t border-champagne/60 pt-3 text-[11px]">
-          <span className="text-warmgray">Latest {formatDate(group.latestOrderDate)}</span>
-          <span className="text-center text-warmgray">Total {formatPeso(group.total)}</span>
-          <span className="text-right text-success">Paid {formatPeso(group.paid)}</span>
+          <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Order statuses">
+            {statuses.map((status) => <StatusBadge key={status} status={status} />)}
+          </div>
+
+          <div className="mt-3 grid grid-cols-3 gap-2 border-t border-champagne/60 pt-3 text-[11px]">
+            <span className="text-warmgray">Latest {formatDate(group.latestOrderDate)}</span>
+            <span className="text-center text-warmgray">Total {formatPeso(group.total)}</span>
+            <span className="text-right text-success">Paid {formatPeso(group.paid)}</span>
+          </div>
         </div>
-      </div>
-    </button>
+      </button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="absolute top-3 right-3 size-9 rounded-lg"
+        aria-label={`View ${group.patient_name}'s orders`}
+        onClick={onClick}
+      >
+        <Eye className="size-4" aria-hidden="true" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="absolute top-3 right-14 size-9 rounded-lg"
+        aria-label={`Edit ${group.patient_name}`}
+        onClick={onEdit}
+        disabled={!group.patient}
+      >
+        <Pencil className="size-4" aria-hidden="true" />
+      </Button>
+    </div>
   )
 }
 
@@ -367,6 +398,7 @@ export default function OrdersPage() {
   const sort = SORT_OPTIONS.some((option) => option.value === rawSort) ? rawSort : 'newest'
   const [selectedId, setSelectedId] = useState(null)
   const [patientDrawerId, setPatientDrawerId] = useState(null)
+  const [editingPatient, setEditingPatient] = useState(null)
   const [cancelTarget, setCancelTarget] = useState(null)
   const [payFor, setPayFor] = useState(null)
   const [savingStatus, setSavingStatus] = useState(false)
@@ -829,9 +861,11 @@ export default function OrdersPage() {
                   <TH>Patient</TH>
                   <TH className="w-24 text-center">Orders</TH>
                   <TH className="hidden w-36 lg:table-cell">Latest order</TH>
+                  <TH className="w-40">Status</TH>
                   <TH className="w-32 text-right">Combined total</TH>
                   <TH className="hidden w-32 text-right md:table-cell">Paid</TH>
                   <TH className="w-32 text-right">Balance due</TH>
+                  <TH className="w-24 text-right">Action</TH>
                 </tr>
               </THead>
               <TBody>
@@ -865,6 +899,13 @@ export default function OrdersPage() {
                     <TD className="tabular hidden text-[13px] text-warmgray lg:table-cell">
                       {formatDate(group.latestOrderDate)}
                     </TD>
+                    <TD>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[...new Set(group.orders.map((order) => order.status))].map((status) => (
+                          <StatusBadge key={status} status={status} />
+                        ))}
+                      </div>
+                    </TD>
                     <TD className="tabular text-right text-[13px]">
                       {formatPeso(group.total)}
                     </TD>
@@ -880,6 +921,37 @@ export default function OrdersPage() {
                         </span>
                       )}
                     </TD>
+                    <TD>
+                      <div className="flex justify-end gap-1.5">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-9 rounded-lg"
+                        aria-label={`View ${group.patient_name}'s orders`}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          setPatientDrawerId(group.patient_id)
+                        }}
+                      >
+                        <Eye className="size-4" aria-hidden="true" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-9 rounded-lg"
+                        aria-label={`Edit ${group.patient_name}`}
+                        disabled={!group.patient}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          setEditingPatient(group.patient)
+                        }}
+                      >
+                        <Pencil className="size-4" aria-hidden="true" />
+                      </Button>
+                      </div>
+                    </TD>
                   </TR>
                 ))}
               </TBody>
@@ -892,6 +964,7 @@ export default function OrdersPage() {
                   key={group.patient_id}
                   group={group}
                   onClick={() => setPatientDrawerId(group.patient_id)}
+                  onEdit={() => setEditingPatient(group.patient)}
                 />
               ))}
             </div>
@@ -945,6 +1018,17 @@ export default function OrdersPage() {
           setSelectedId(null)
           setCancelTarget(order)
           setConfirmCancel(true)
+        }}
+      />
+
+      <PatientFormDialog
+        key={editingPatient?.id ?? 'no-order-patient-edit'}
+        open={Boolean(editingPatient)}
+        patient={editingPatient}
+        onClose={() => setEditingPatient(null)}
+        onSaved={() => {
+          invalidateClinicQueries(userId, 'loadPatients', 'loadOrders', 'dashboard-summary')
+          orders.reload()
         }}
       />
 

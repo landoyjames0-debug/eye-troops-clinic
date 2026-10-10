@@ -515,7 +515,7 @@ export default function NewVisitPage() {
         primaryLabel: order ? 'View order' : 'View patients',
         onPrimary: () => navigate(order
           ? `/orders?search=${encodeURIComponent(order.order_number)}`
-          : `/patients?search=${encodeURIComponent(patientName)}`),
+          : `/patients?patient=${encodeURIComponent(progress.patientId)}`),
       })
       navigate(order ? '/orders' : '/patients')
     } catch (caught) {

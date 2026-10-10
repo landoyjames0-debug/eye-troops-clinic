@@ -59,7 +59,9 @@ export async function listOrders(search = '', status = 'ALL', paymentFilter = 'A
     const [orders, payments, patients] = await Promise.all([
       query.order('visit_date', { ascending: false }).order('order_date', { ascending: false }),
       supabase.from('payments').select('id, order_id, amount, status'),
-      supabase.from('patients').select('id, full_name, cp_number, date_of_birth, age'),
+      supabase
+        .from('patients')
+        .select('id, full_name, cp_number, address, notes, date_of_birth, age, visit_date, created_at, updated_at'),
     ])
 
     const term = search.trim().toLowerCase()

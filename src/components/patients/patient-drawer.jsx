@@ -7,7 +7,7 @@ import { EmptyState, Skeleton } from '@/components/ui/feedback'
 import { PrescriptionTable } from '@/components/visits/prescription-table'
 import { useAsync } from '@/hooks/use-async'
 import { getPatientDetail } from '@/services/patients.service'
-import { formatDate, formatDateShort, formatPeso, formatTime } from '@/utils/format'
+import { formatDate, formatPeso, formatTime } from '@/utils/format'
 import { formatAge } from '@/utils/age'
 
 function SectionLabel({ children }) {
@@ -129,10 +129,10 @@ export function PatientDrawer({ patientId, cpLabel, onClose, onSelectOrder, onCa
                 <Field label="CP Number">{cpLabel ?? '—'}</Field>
                 <Field label="Age">{formatAge(patient, { unit: true })}</Field>
                 <Field label="Date of birth">{patient.date_of_birth ? formatDate(patient.date_of_birth) : '—'}</Field>
-                <Field label="Visit date">{patient.visit_date ? formatDateShort(patient.visit_date) : '—'}</Field>
+                <Field label="Visit date">{patient.visit_date ? formatDate(patient.visit_date) : '—'}</Field>
                 <Field label="Contact">{patient.cp_number || '—'}</Field>
                 <Field label="Address">{patient.address || '—'}</Field>
-                <Field label="Date added">{formatDateShort(patient.created_at)}</Field>
+                <Field label="Date added">{formatDate(patient.created_at)}</Field>
               </dl>
             </section>
 
@@ -178,7 +178,7 @@ export function PatientDrawer({ patientId, cpLabel, onClose, onSelectOrder, onCa
                   {orders.map((order) => (
                     <TimelineItem
                       key={order.id}
-                      date={`${order.order_number} · ${formatDateShort(order.order_date)}`}
+                      date={`${order.order_number} · ${formatDate(order.order_date)}`}
                       action={(
                         <div className="flex flex-wrap items-center justify-end gap-1.5">
                           <StatusBadge status={order.status} />
@@ -228,7 +228,7 @@ export function PatientDrawer({ patientId, cpLabel, onClose, onSelectOrder, onCa
                             {order.payments.map((payment) => (
                               <li key={payment.id} className="flex items-center justify-between gap-3 px-3 py-2 text-[12px]">
                                 <span className="min-w-0">
-                                  <span className="block text-warmgray">{formatDateShort(payment.payment_date)}</span>
+                                  <span className="block text-warmgray">{formatDate(payment.payment_date)}</span>
                                   <span className="block truncate text-espresso">{payment.notes || 'Payment'}</span>
                                 </span>
                                 <span className="shrink-0 text-right">

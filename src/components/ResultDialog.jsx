@@ -104,7 +104,7 @@ export default function ResultDialog({
     >
       <section
         ref={dialogRef}
-        role={isSuccess ? 'status' : 'alertdialog'}
+        role={isSuccess ? 'dialog' : 'alertdialog'}
         aria-live={isSuccess ? 'polite' : 'assertive'}
         aria-modal="true"
         aria-labelledby={titleId}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { addDays, toDateKey } from '@/utils/dates'
 import { formatDate } from '@/utils/format'
 import { cn } from '@/lib/utils'
@@ -28,6 +28,12 @@ function normalizeDateKey(value) {
   return value instanceof Date ? toDateKey(value) : String(value).slice(0, 10)
 }
 
+function clampDateKey(dateKey, minDateKey, maxDateKey) {
+  if (minDateKey && dateKey < minDateKey) return minDateKey
+  if (maxDateKey && dateKey > maxDateKey) return maxDateKey
+  return dateKey
+}
+
 export function DatePicker({
   value,
   onChange,
@@ -46,9 +52,16 @@ export function DatePicker({
   const describedBy = [externalDescribedBy, error ? `${id}-error` : null].filter(Boolean).join(' ') || undefined
   const [open, setOpen] = useState(false)
   const [selectingYear, setSelectingYear] = useState(false)
-  const [visibleMonth, setVisibleMonth] = useState(() => atNoon(value || todayKey))
-  const [focusedDate, setFocusedDate] = useState(value || todayKey)
-  const [desktopPosition, setDesktopPosition] = useState(null)
+  const [manualPart, setManualPart] = useState(null)
+  const initialDateKey = clampDateKey(
+    normalizeDateKey(value) ?? todayKey,
+    minDateKey,
+    maxDateKey,
+  )
+  const [entryMode, setEntryMode] = useState('calendar')
+  const [visibleMonth, setVisibleMonth] = useState(() => atNoon(initialDateKey))
+  const [focusedDate, setFocusedDate] = useState(initialDateKey)
+  const [popupPosition, setPopupPosition] = useState(null)
   const rootRef = useRef(null)
   const panelRef = useRef(null)
   const triggerRef = useRef(null)
@@ -62,12 +75,14 @@ export function DatePicker({
     const handlePointerDown = (event) => {
       if (!rootRef.current?.contains(event.target) && !panelRef.current?.contains(event.target)) setOpen(false)
     }
-    const handleScroll = () => setOpen(false)
+    const handleViewportChange = () => setOpen(false)
     document.addEventListener('pointerdown', handlePointerDown)
-    window.addEventListener('scroll', handleScroll, true)
+    window.addEventListener('scroll', handleViewportChange, true)
+    window.addEventListener('resize', handleViewportChange)
     return () => {
       document.removeEventListener('pointerdown', handlePointerDown)
-      window.removeEventListener('scroll', handleScroll, true)
+      window.removeEventListener('scroll', handleViewportChange, true)
+      window.removeEventListener('resize', handleViewportChange)
     }
   }, [open])
 
@@ -111,6 +126,23 @@ export function DatePicker({
   const years = Array.from({ length: 12 }, (_, index) => yearWindowStart + index)
   const minYear = minDateKey ? Number(minDateKey.slice(0, 4)) : 1
   const maxYear = maxDateKey ? Number(maxDateKey.slice(0, 4)) : 9999
+  const manualDateKey = clampDateKey(
+    normalizeDateKey(value) ?? focusedDate,
+    minDateKey,
+    maxDateKey,
+  )
+  const [manualYearText, manualMonthText, manualDayText] = manualDateKey.split('-')
+  const manualYear = Number(manualYearText)
+  const manualMonth = Number(manualMonthText)
+  const manualDay = Number(manualDayText)
+  const manualMonths = Array.from({ length: 12 }, (_, index) => {
+    const month = index + 1
+    const firstDay = `${manualYearText}-${String(month).padStart(2, '0')}-01`
+    const lastDay = toDateKey(new Date(manualYear, month, 0, 12))
+    return { month, firstDay, lastDay }
+  }).filter(({ firstDay, lastDay }) =>
+    (!minDateKey || lastDay >= minDateKey) && (!maxDateKey || firstDay <= maxDateKey),
+  )
   const shiftYearWindow = (amount) => {
     const year = Math.max(minYear, Math.min(maxYear, yearWindowStart + amount * 12))
     setVisibleMonth(new Date(year, visibleMonth.getMonth(), 1, 12))
@@ -127,28 +159,37 @@ export function DatePicker({
     setFocusedDate(minDateKey && monthKey < minDateKey ? minDateKey : monthKey)
     setSelectingYear(false)
   }
+  const updateManualDate = (year, month, day) => {
+    const lastDay = new Date(year, month, 0).getDate()
+    const candidate = clampDateKey(
+      `${year}-${String(month).padStart(2, '0')}-${String(Math.min(day, lastDay)).padStart(2, '0')}`,
+      minDateKey,
+      maxDateKey,
+    )
+    onChange(candidate)
+    setFocusedDate(candidate)
+    setVisibleMonth(atNoon(candidate))
+    setManualPart(null)
+  }
   const openPicker = () => {
     setSelectingYear(false)
-    if (value) {
-      setVisibleMonth(atNoon(value))
-      setFocusedDate(value)
-    }
+    setManualPart(null)
+    setEntryMode('calendar')
+    const initialKey = clampDateKey(normalizeDateKey(value) ?? todayKey, minDateKey, maxDateKey)
+    setVisibleMonth(atNoon(initialKey))
+    setFocusedDate(initialKey)
     const rect = triggerRef.current?.getBoundingClientRect()
-    if (rect && window.matchMedia('(min-width: 640px)').matches) {
-      const width = Math.min(300, window.innerWidth - 16)
-      const height = 360
-      const spaceBelow = window.innerHeight - rect.bottom
-      const spaceAbove = rect.top
-      const flip = spaceBelow < height && spaceAbove > spaceBelow
-      const top = flip
-        ? Math.max(8, rect.top - height - 8)
-        : Math.max(8, Math.min(rect.bottom + 8, window.innerHeight - height - 8))
-      setDesktopPosition({
+    if (rect) {
+      const viewportWidth = Math.max(window.innerWidth - 16, 0)
+      const width = Math.min(360, viewportWidth, Math.max(rect.width, 300))
+      const availableSpaceBelow = Math.max(window.innerHeight - rect.bottom - 16, 1)
+      const height = Math.min(480, availableSpaceBelow)
+      setPopupPosition({
         left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)),
-        top,
+        top: rect.bottom + 8,
+        width,
+        height,
       })
-    } else {
-      setDesktopPosition(null)
     }
     setOpen((current) => !current)
   }
@@ -184,9 +225,9 @@ export function DatePicker({
       </button>
       {error && <p id={`${id}-error`} className="mt-1.5 text-xs text-error" role="alert">{error}</p>}
 
-      {open && (
-        createPortal(<div
-          className="fixed inset-0 z-120 flex items-end bg-espresso/35 p-0 sm:pointer-events-none sm:block sm:bg-transparent"
+      {open && popupPosition && createPortal(
+        <div
+          className="fixed inset-0 z-120 bg-transparent"
           onMouseDown={(event) => { if (event.target === event.currentTarget) close() }}
         >
           <div
@@ -197,47 +238,209 @@ export function DatePicker({
               if (event.key === 'Escape') {
                 event.preventDefault()
                 close()
-              } else if (!selectingYear && event.key.startsWith('Arrow')) {
+              } else if (entryMode === 'calendar' && !selectingYear && event.key.startsWith('Arrow')) {
                 event.preventDefault()
                 const step = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : event.key === 'ArrowUp' ? -7 : 7
                 moveFocus(atNoon(focusedDate), step)
               }
             }}
-            style={desktopPosition ? { position: 'fixed', left: desktopPosition.left, top: desktopPosition.top } : undefined}
-            className="pointer-events-auto max-h-[90dvh] w-full overflow-y-auto rounded-t-card border border-champagne bg-surface p-3 shadow-pop sm:w-75 sm:max-w-[calc(100vw-16px)] sm:rounded-card motion-reduce:animate-none"
+            style={{
+              position: 'fixed',
+              left: popupPosition.left,
+              top: popupPosition.top,
+              width: popupPosition.width,
+              maxHeight: popupPosition.height,
+            }}
+            className="z-121 overflow-y-auto rounded-card border border-champagne bg-surface p-3 shadow-pop motion-reduce:animate-none"
           >
-            <div className="mb-2 flex items-center justify-between">
+            <div className="mb-3 grid grid-cols-2 gap-1 rounded-control border border-champagne p-1">
               <button
                 type="button"
-                aria-label={selectingYear ? 'Previous years' : 'Previous month'}
-                disabled={selectingYear ? yearWindowStart <= minYear : !canGoPrevious}
-                onClick={() => selectingYear ? shiftYearWindow(-1) : shiftMonth(-1)}
-                className="flex size-10 items-center justify-center rounded-control text-espresso hover:bg-gold-light/60 focus-visible:outline-gold disabled:opacity-35"
+                aria-pressed={entryMode === 'calendar'}
+                onClick={() => {
+                  setEntryMode('calendar')
+                  setSelectingYear(false)
+                  setManualPart(null)
+                }}
+                className={cn(
+                  'min-h-10 rounded-control px-3 text-sm font-medium transition-colors',
+                  entryMode === 'calendar' ? 'bg-gold-light text-gold-dark' : 'text-warmgray hover:bg-ivory',
+                )}
               >
-                <ChevronLeft className="size-4" aria-hidden="true" />
+                Calendar
               </button>
               <button
                 type="button"
-                aria-label={selectingYear ? 'Return to calendar' : 'Choose year'}
-                aria-expanded={selectingYear}
-                onClick={() => setSelectingYear((current) => !current)}
-                className="rounded-control px-2 py-1 text-sm font-semibold text-espresso hover:bg-gold-light/60 focus-visible:outline-2 focus-visible:outline-gold"
+                aria-pressed={entryMode === 'manual'}
+                onClick={() => {
+                  setEntryMode('manual')
+                  setSelectingYear(false)
+                  setManualPart(null)
+                }}
+                className={cn(
+                  'min-h-10 rounded-control px-3 text-sm font-medium transition-colors',
+                  entryMode === 'manual' ? 'bg-gold-light text-gold-dark' : 'text-warmgray hover:bg-ivory',
+                )}
               >
-                {selectingYear
-                  ? `${years[0]}–${years[years.length - 1]}`
-                  : new Intl.DateTimeFormat('en-PH', { month: 'long', year: 'numeric' }).format(visibleMonth)}
-              </button>
-              <button
-                type="button"
-                aria-label={selectingYear ? 'Next years' : 'Next month'}
-                disabled={selectingYear ? yearWindowStart + 11 >= maxYear : !canGoNext}
-                onClick={() => selectingYear ? shiftYearWindow(1) : shiftMonth(1)}
-                className="flex size-10 items-center justify-center rounded-control text-espresso hover:bg-gold-light/60 focus-visible:outline-gold disabled:opacity-35"
-              >
-                <ChevronRight className="size-4" aria-hidden="true" />
+                Manual
               </button>
             </div>
-            {selectingYear ? (
+            {entryMode === 'manual' ? (
+              <>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    {
+                      part: 'month',
+                      label: 'Month',
+                      value: new Intl.DateTimeFormat('en-PH', { month: 'long' }).format(new Date(2026, manualMonth - 1, 1)),
+                    },
+                    { part: 'day', label: 'Day', value: String(manualDay) },
+                    { part: 'year', label: 'Year', value: String(manualYear) },
+                  ].map(({ part, label: partLabel, value: partValue }) => (
+                    <div key={part} className="min-w-0">
+                      <span className="block text-[11px] font-medium text-warmgray">{partLabel}</span>
+                      <button
+                        type="button"
+                        aria-label={`${partLabel}: ${partValue}`}
+                        aria-expanded={manualPart === part}
+                        onClick={() => setManualPart((current) => current === part ? null : part)}
+                        className={cn(
+                          'mt-1.5 flex h-11 w-full items-center justify-between gap-1 rounded-control border bg-surface px-2 text-sm text-espresso focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold',
+                          manualPart === part ? 'border-gold ring-2 ring-gold/20' : 'border-champagne hover:border-gold/60',
+                        )}
+                      >
+                        <span className="truncate">{partValue}</span>
+                        <ChevronDown className="size-4 shrink-0 text-warmgray" aria-hidden="true" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {manualPart === 'month' && (
+                  <div className="mt-3 grid grid-cols-3 gap-1" role="group" aria-label="Choose month">
+                    {manualMonths.map(({ month }) => {
+                      const monthLabel = new Intl.DateTimeFormat('en-PH', { month: 'long' })
+                        .format(new Date(2026, month - 1, 1))
+                      return (
+                        <button
+                          key={month}
+                          type="button"
+                          aria-pressed={month === manualMonth}
+                          onClick={() => updateManualDate(manualYear, month, manualDay)}
+                          className={cn(
+                            'min-h-10 rounded-control px-2 text-sm focus-visible:outline-2 focus-visible:outline-gold',
+                            month === manualMonth ? 'bg-gold-light font-semibold text-gold-dark' : 'text-espresso hover:bg-ivory',
+                          )}
+                        >
+                          {monthLabel}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {manualPart === 'day' && (
+                  <div className="mt-3 grid grid-cols-7 gap-1" role="group" aria-label="Choose day">
+                    {Array.from({ length: new Date(manualYear, manualMonth, 0).getDate() }, (_, index) => index + 1).map((day) => {
+                      const allowed = isAllowed(`${manualYearText}-${manualMonthText}-${String(day).padStart(2, '0')}`)
+                      return (
+                        <button
+                          key={day}
+                          type="button"
+                          aria-pressed={day === manualDay}
+                          disabled={!allowed}
+                          onClick={() => updateManualDate(manualYear, manualMonth, day)}
+                          className={cn(
+                            'min-h-10 rounded-control text-sm focus-visible:outline-2 focus-visible:outline-gold disabled:cursor-not-allowed disabled:opacity-30',
+                            day === manualDay ? 'bg-gold-light font-semibold text-gold-dark' : 'text-espresso hover:bg-ivory',
+                          )}
+                        >
+                          {day}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {manualPart === 'year' && (
+                  <>
+                    <div className="mt-3 flex items-center justify-between">
+                      <button
+                        type="button"
+                        aria-label="Previous years"
+                        disabled={yearWindowStart <= minYear}
+                        onClick={() => shiftYearWindow(-1)}
+                        className="flex size-10 items-center justify-center rounded-control text-espresso hover:bg-gold-light/60 focus-visible:outline-gold disabled:opacity-35"
+                      >
+                        <ChevronLeft className="size-4" aria-hidden="true" />
+                      </button>
+                      <span className="text-sm font-semibold text-espresso">
+                        {years[0]}–{years[years.length - 1]}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label="Next years"
+                        disabled={yearWindowStart + 11 >= maxYear}
+                        onClick={() => shiftYearWindow(1)}
+                        className="flex size-10 items-center justify-center rounded-control text-espresso hover:bg-gold-light/60 focus-visible:outline-gold disabled:opacity-35"
+                      >
+                        <ChevronRight className="size-4" aria-hidden="true" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1" role="group" aria-label="Choose year">
+                      {years.map((year) => (
+                        <button
+                          key={year}
+                          type="button"
+                          aria-pressed={year === manualYear}
+                          disabled={year < minYear || year > maxYear}
+                          onClick={() => updateManualDate(year, manualMonth, manualDay)}
+                          className={cn(
+                            'min-h-10 rounded-control text-sm focus-visible:outline-2 focus-visible:outline-gold disabled:cursor-not-allowed disabled:opacity-30',
+                            year === manualYear ? 'bg-gold-light font-semibold text-gold-dark' : 'text-espresso hover:bg-ivory',
+                          )}
+                        >
+                          {year}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="mb-2 flex items-center justify-between">
+                  <button
+                    type="button"
+                    aria-label={selectingYear ? 'Previous years' : 'Previous month'}
+                    disabled={selectingYear ? yearWindowStart <= minYear : !canGoPrevious}
+                    onClick={() => selectingYear ? shiftYearWindow(-1) : shiftMonth(-1)}
+                    className="flex size-10 items-center justify-center rounded-control text-espresso hover:bg-gold-light/60 focus-visible:outline-gold disabled:opacity-35"
+                  >
+                    <ChevronLeft className="size-4" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={selectingYear ? 'Return to calendar' : 'Choose year'}
+                    aria-expanded={selectingYear}
+                    onClick={() => setSelectingYear((current) => !current)}
+                    className="rounded-control px-2 py-1 text-sm font-semibold text-espresso hover:bg-gold-light/60 focus-visible:outline-2 focus-visible:outline-gold"
+                  >
+                    {selectingYear
+                      ? `${years[0]}–${years[years.length - 1]}`
+                      : new Intl.DateTimeFormat('en-PH', { month: 'long', year: 'numeric' }).format(visibleMonth)}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={selectingYear ? 'Next years' : 'Next month'}
+                    disabled={selectingYear ? yearWindowStart + 11 >= maxYear : !canGoNext}
+                    onClick={() => selectingYear ? shiftYearWindow(1) : shiftMonth(1)}
+                    className="flex size-10 items-center justify-center rounded-control text-espresso hover:bg-gold-light/60 focus-visible:outline-gold disabled:opacity-35"
+                  >
+                    <ChevronRight className="size-4" aria-hidden="true" />
+                  </button>
+                </div>
+                {selectingYear ? (
               <div className="grid grid-cols-3 gap-1" role="grid" aria-label="Choose year">
                 {years.map((year) => (
                   <button
@@ -263,7 +466,7 @@ export function DatePicker({
                   </button>
                 ))}
               </div>
-            ) : (
+                ) : (
               <>
                 <div className="grid grid-cols-7 text-center text-[12px] font-medium text-warmgray" aria-hidden="true">
                   {WEEKDAYS.map((day) => <span key={day} className="py-1.5">{day}</span>)}
@@ -302,6 +505,8 @@ export function DatePicker({
                     )
                   })}
                 </div>
+                  </>
+                )}
               </>
             )}
             <div className="mt-2 flex justify-between border-t border-champagne pt-2">
@@ -309,7 +514,8 @@ export function DatePicker({
               <button type="button" className="min-h-10 px-3 text-sm font-medium text-warmgray hover:bg-gold-light/60" onClick={() => { onChange(''); close() }}>Clear</button>
             </div>
           </div>
-        </div>, document.body)
+        </div>,
+        document.body,
       )}
     </div>
   )

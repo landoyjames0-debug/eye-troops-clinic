@@ -23,7 +23,7 @@ import { PatientDrawer } from '@/components/patients/patient-drawer'
 import { PatientFormDialog } from '@/components/patients/patient-form-dialog'
 import { invalidateClinicQueries } from '@/lib/query-client'
 import { TABLE_PAGE_SIZE } from '@/lib/constants'
-import { formatDateShort, formatPeso, formatTime } from '@/utils/format'
+import { formatDate, formatDateShort, formatPeso, formatTime } from '@/utils/format'
 import { formatAge } from '@/utils/age'
 import { SearchInput } from '@/components/ui/search-input'
 import { cn } from '@/lib/utils'
@@ -348,7 +348,7 @@ export default function PatientsPage() {
                         {patient.last_visit ? (
                           <span className="inline-flex items-center gap-1.5 text-[13px] text-warmgray">
                             <Calendar className="size-3.5 text-gold" strokeWidth={1.8} />
-                            {formatDateShort(patient.last_visit.visit_date)}
+                            {formatDate(patient.last_visit.visit_date)}
                           </span>
                         ) : (
                           <span className="text-[13px] text-warmgray/50">—</span>
@@ -389,12 +389,13 @@ export default function PatientsPage() {
                         <div className="flex justify-end gap-1.5">
                           <Button
                             variant="ghost"
-                            size="icon"
+                            size="sm"
                             onClick={() => setSelectedId(patient.id)}
                             aria-label={`View ${patient.full_name}`}
-                            className="size-9 rounded-lg"
+                            className="h-9 gap-1.5 px-2 text-[12px]"
                           >
                             <Eye className="size-4" aria-hidden="true" />
+                            View
                           </Button>
                           <Button
                             variant="ghost"
@@ -446,8 +447,9 @@ export default function PatientsPage() {
                     </button>
 
                     <div className="flex shrink-0 gap-2 text-right">
-                      <Button variant="ghost" size="icon" onClick={() => setSelectedId(patient.id)} aria-label={`View ${patient.full_name}`} className="size-8 rounded-lg">
+                      <Button variant="ghost" size="sm" onClick={() => setSelectedId(patient.id)} aria-label={`View ${patient.full_name}`} className="h-8 gap-1 px-2 text-[11px]">
                         <Eye className="size-4" aria-hidden="true" />
+                        View
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => setEditingPatient(patient)} aria-label={`Edit ${patient.full_name}`} className="size-8 rounded-lg">
                         <Pencil className="size-4" aria-hidden="true" />
@@ -463,7 +465,7 @@ export default function PatientsPage() {
                     <div className="flex items-center justify-between gap-3">
                       <span>Last visit</span>
                       <span className="text-espresso">
-                        {patient.last_visit ? formatDateShort(patient.last_visit.visit_date) : '—'}
+                        {patient.last_visit ? formatDate(patient.last_visit.visit_date) : '—'}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-3">
