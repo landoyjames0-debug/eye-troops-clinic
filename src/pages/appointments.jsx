@@ -18,6 +18,7 @@ import {
 import { PageHeader, SectionTitle, Avatar, StatTile } from '@/components/layout/page-header'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Pagination } from '@/components/ui/pagination'
 import { Input, Select, Textarea } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { EmptyState, ErrorNote, Skeleton } from '@/components/ui/feedback'
@@ -32,6 +33,7 @@ import {
   getAppointmentStatusLabel,
   normalizeAppointmentStatus,
 } from '@/lib/appointment-status'
+import { TABLE_PAGE_SIZE } from '@/lib/constants'
 import { listPatientRoster } from '@/services/patients.service'
 import { invalidateClinicQueries } from '@/lib/query-client'
 import { toDateKey, toInputDateTime } from '@/utils/dates'
@@ -146,6 +148,7 @@ export default function AppointmentsPage() {
   const [actionBusyId, setActionBusyId] = useState(null)
   const [editingAppointment, setEditingAppointment] = useState(null)
   const [availabilityRevision, setAvailabilityRevision] = useState(0)
+  const [appointmentPage, setAppointmentPage] = useState(1)
   const savingRef = useRef(false)
   const patientComboboxRef = useRef(null)
   const patientInputRef = useRef(null)
@@ -215,15 +218,22 @@ export default function AppointmentsPage() {
     [appointments.data, todayStart],
   )
 
+  const appointmentPageCount = Math.max(Math.ceil(upcoming.length / TABLE_PAGE_SIZE), 1)
+  const currentAppointmentPage = Math.min(appointmentPage, appointmentPageCount)
+  const pageAppointments = upcoming.slice(
+    (currentAppointmentPage - 1) * TABLE_PAGE_SIZE,
+    currentAppointmentPage * TABLE_PAGE_SIZE,
+  )
+
   const appointmentGroups = useMemo(() => {
     const groups = new Map()
-    for (const appointment of upcoming) {
+    for (const appointment of pageAppointments) {
       const dateKey = toDateKey(new Date(appointment.start_at))
       if (!groups.has(dateKey)) groups.set(dateKey, [])
       groups.get(dateKey).push(appointment)
     }
     return [...groups.entries()].map(([dateKey, items]) => ({ dateKey, items }))
-  }, [upcoming])
+  }, [pageAppointments])
 
   const todayCount = upcoming.filter((item) =>
     toDateKey(new Date(item.start_at)) === todayKey &&
@@ -853,6 +863,17 @@ export default function AppointmentsPage() {
               </div>
             )}
           </div>
+          {!appointments.error && appointments.data && upcoming.length > 0 && (
+            <Pagination
+              page={currentAppointmentPage}
+              pageCount={appointmentPageCount}
+              total={upcoming.length}
+              pageSize={TABLE_PAGE_SIZE}
+              itemLabel="appointment"
+              ariaLabel="upcoming appointments pagination"
+              onPageChange={setAppointmentPage}
+            />
+          )}
         </Card>
       </div>
     </div>
