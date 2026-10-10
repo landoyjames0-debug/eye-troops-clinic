@@ -85,13 +85,13 @@ export function PwaInstallPrompt() {
   const instructions = installMode === 'ios'
     ? 'In Safari, tap Share, then Add to Home Screen.'
     : installMode === 'manual'
-      ? 'Open your browser menu and choose Install Eye TroOps or Install this site as an app.'
+      ? 'Open your browser menu and choose Install Eye Troops or Install this site as an app.'
       : 'Installing adds an app shortcut. Your clinic account and records remain online; patient data is not downloaded to this device.'
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && dismiss()}>
       <DialogContent
-        title="Install Eye TroOps?"
+        title="Install Eye Troops?"
         description="Add the clinic app to your device for quick access."
         size="sm"
         showClose={false}

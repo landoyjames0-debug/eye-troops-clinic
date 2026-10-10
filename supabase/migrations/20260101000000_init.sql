@@ -1,4 +1,4 @@
--- Eye TroOps Optical Clinic — initial schema
+-- Eye Troops Optical Clinic — initial schema
 -- Money is stored as numeric(12,2) in PHP pesos.
 -- Sales are never stored: they are always SUM(payments.amount) by payment_date,
 -- counting only COMPLETED payments (voided or refunded rows are excluded).

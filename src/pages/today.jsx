@@ -598,7 +598,7 @@ export default function TodayPage() {
       {/* ── Page header ───────────────────────────────────────── */}
       <PageHeader
         title="Today"
-        description={`${greeting}! Here's what is happening at Eye TroOps today.`}
+        description={`${greeting}! Here's what is happening at Eye Troops today.`}
         action={
           <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
             <div className="hidden items-center gap-2 rounded-lg bg-gold-light/50 px-3 py-1.5 sm:flex">

@@ -61,7 +61,7 @@ export function friendlyError(key, cause) {
     const detail = cause ?? null
     if (detail) {
       console.warn(
-        `[EyeTroOps] friendlyError("${key}") — raw error below:`,
+        `[EyeTroops] friendlyError("${key}") — raw error below:`,
         {
           code:    detail?.code    ?? detail?.error_code ?? '—',
           message: detail?.message ?? '—',
@@ -71,7 +71,7 @@ export function friendlyError(key, cause) {
         detail,
       )
     } else {
-      console.warn(`[EyeTroOps] friendlyError fallback used for "${key}" (no cause provided)`)
+      console.warn(`[EyeTroops] friendlyError fallback used for "${key}" (no cause provided)`)
     }
   }
   return new AppError(MESSAGES[key] ?? MESSAGES.load, { cause })
@@ -103,7 +103,7 @@ export function classifyConnectivityFailure(caught) {
  */
 export function toAppError(caught, key) {
   if (import.meta.env.DEV) {
-    console.error(`[EyeTroOps] ${key}:`, caught)
+    console.error(`[EyeTroops] ${key}:`, caught)
   }
   if (caught instanceof AppError) return caught
   const connectivityFailure = classifyConnectivityFailure(caught)

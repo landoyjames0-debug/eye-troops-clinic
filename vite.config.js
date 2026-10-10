@@ -15,9 +15,9 @@ export default defineConfig({
       includeAssets: ['eye-troops-logo.png'],
       manifest: {
         id: '/',
-        name: 'Eye TroOps Optical Clinic',
-        short_name: 'Eye TroOps',
-        description: 'Patient, visit, prescription, order, and payment management for Eye TroOps Optical Clinic.',
+        name: 'Eye Troops Optical Clinic',
+        short_name: 'Eye Troops',
+        description: 'Patient, visit, prescription, order, and payment management for Eye Troops Optical Clinic.',
         start_url: '/',
         scope: '/',
         display: 'standalone',

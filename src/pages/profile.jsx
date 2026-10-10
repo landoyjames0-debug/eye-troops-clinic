@@ -603,7 +603,7 @@ export default function ProfilePage() {
                   <Palette className="size-5" aria-hidden="true" />
                 </span>
                 <div>
-                  <p className="text-sm font-semibold text-espresso">Eye TroOps clinic theme</p>
+                  <p className="text-sm font-semibold text-espresso">Eye Troops clinic theme</p>
                   <p className="mt-0.5 text-xs text-warmgray">Choose your appearance preference.</p>
                 </div>
               </div>

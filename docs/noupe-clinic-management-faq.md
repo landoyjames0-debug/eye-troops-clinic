@@ -1,10 +1,10 @@
-# Eye TroOps Clinic Management FAQ
+# Eye Troops Clinic Management FAQ
 
 Chatbot-ready FAQ for clinic staff. Answers describe the current website. Do not ask users to share passwords, authentication codes, or payment details in chat. If access or a record needs administrator help, direct the user to the clinic administrator.
 
 ## Getting started
 
-Q: What is Eye TroOps Clinic Management?
+Q: What is Eye Troops Clinic Management?
 A: It is the clinic website for managing patient records, visits, prescriptions, appointments, optical orders, payments, sales, and expenses.
 
 Q: How do I sign in?
@@ -16,8 +16,8 @@ A: Today shows clinic activity, collections, sales and expenses, outstanding bal
 Q: Can I use the website on a phone or tablet?
 A: Yes. The website has responsive layouts for desktop, tablet, and mobile.
 
-Q: How do I install Eye TroOps on my device?
-A: On your first visit, choose Install app in the prompt. If the prompt is not available, open the browser menu and choose Install Eye TroOps or Install this site as an app. On iPhone or iPad, open the site in Safari, tap Share, then Add to Home Screen. Installation adds an app shortcut; clinic records still require an internet connection.
+Q: How do I install Eye Troops on my device?
+A: On your first visit, choose Install app in the prompt. If the prompt is not available, open the browser menu and choose Install Eye Troops or Install this site as an app. On iPhone or iPad, open the site in Safari, tap Share, then Add to Home Screen. Installation adds an app shortcut; clinic records still require an internet connection.
 
 ## Patients
 

@@ -1,4 +1,4 @@
-# Eye TroOps clinic feature roadmap
+# Eye Troops clinic feature roadmap
 
 ## Goal
 

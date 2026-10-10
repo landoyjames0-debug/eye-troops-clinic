@@ -123,7 +123,7 @@ export async function enrollTotpFactor() {
   if (!supabase) throw friendlyError('supabaseConfig')
   const { data, error } = await supabase.auth.mfa.enroll({
     factorType: 'totp',
-    friendlyName: 'Eye TroOps authenticator',
+    friendlyName: 'Eye Troops authenticator',
   })
   if (error) throw toAppError(error, 'enrollMfaFactor')
   return data

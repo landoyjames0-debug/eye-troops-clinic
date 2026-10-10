@@ -1,4 +1,4 @@
--- Eye TroOps synthetic UI fixtures.
+-- Eye Troops synthetic UI fixtures.
 -- Run manually against a LOCAL or dedicated development Supabase project only.
 -- Do not run against production. This replaces rows using the reserved DEMO-* /
 -- Demo Patient * prefixes; normal app data is not targeted.

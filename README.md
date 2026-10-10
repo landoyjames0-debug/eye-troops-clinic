@@ -1,6 +1,6 @@
-# Eye TroOps Optical Clinic Management System
+# Eye Troops Optical Clinic Management System
 
-A modern web-based management system designed for **Eye TroOps Optical Clinic** to organize and simplify everyday clinic operations.
+A modern web-based management system designed for **Eye Troops Optical Clinic** to organize and simplify everyday clinic operations.
 
 The system provides a centralized platform for managing patient records, optical prescriptions, orders, payments, sales, and clinic expenses.
 

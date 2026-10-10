@@ -1,4 +1,4 @@
-export const APP_NAME = 'Eye TroOps'
+export const APP_NAME = 'Eye Troops'
 export const APP_SUBTITLE = 'OPTICAL CLINIC'
 export const CURRENCY_CODE = 'PHP'
 
