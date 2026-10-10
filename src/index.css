@@ -5,7 +5,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  /* Eye TroOps brand palette — warm, premium, optical-clinic appropriate */
+  /* Eye Troops brand palette — warm, premium, optical-clinic appropriate */
   --color-gold: #b8893d; /* Primary Champagne Gold — accents, active states */
   --color-gold-dark: #8f672c; /* Dark Antique Gold — legible action surfaces */
   --color-gold-light: #f4e7d3; /* Pale Champagne — active row fills */
@@ -183,7 +183,7 @@ h4 { font-size: var(--text-xl); font-family: var(--font-display); font-weight: 6
 
 html.dark {
   color-scheme: dark;
-  /* Eye TroOps dark theme — sophisticated warm dark, never pure black. Every
+  /* Eye Troops dark theme — sophisticated warm dark, never pure black. Every
      semantic token used across the app remaps here, so the sidebar toggle
      re-themes the ENTIRE application (cards, tables, inputs, dialogs…). */
   --color-gold: #c9953f; /* Primary gold */
@@ -1883,5 +1883,60 @@ html.dark .login-submit {
   to {
     opacity: 1;
     transform: translateX(0);
+  }
+}
+
+/* ── Splash Screen Animations ─────────────────────────────────────── */
+@keyframes splash-logo-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes splash-text-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes splash-content-in {
+  from {
+    opacity: 0;
+    transform: scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-splash-logo {
+  animation: splash-logo-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-splash-text {
+  animation: splash-text-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-splash-content-in {
+  animation: splash-content-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-splash-logo,
+  .animate-splash-text,
+  .animate-splash-content-in {
+    animation: none !important;
+    transform: none !important;
   }
 }
